@@ -247,7 +247,7 @@ record struct ColorHSB(float h, float s, float b) {
 		}
 
 		float chroma = this.b * this.s;
-		float hue60 = this.h / 60f;
+		float hue60 = this.h * 6f;
 		float x = chroma * (1 - Abs(hue60 % 2 - 1));
 		float r, g, b;
 
@@ -336,7 +336,9 @@ record struct ColorHSL(float h, float s, float l) {
 
 sealed class SineWaveGenerator : Generator {
 	public float Generate(int index, float x, float y) {
-		return (Sin(x * 10) + 1) / 2;
+		return x >= 0.5 && y < 0.5
+			? (Sin((y - 0.25f) * 2 * PI) + 1) / 2
+			: 1;
 	}
 }
 
@@ -346,7 +348,12 @@ sealed class SineWaveGenerator : Generator {
 
 sealed class RainbowColorGenerator : ColorGenerator {
 	public ColorHS Generate(int index, float x, float y) {
-		return new ColorHS(x, y);
+		return new ColorHS(
+			x,
+			x < 0.5 && y < 0.5
+				? y * 2
+				: 1
+		);
 	}
 }
 
