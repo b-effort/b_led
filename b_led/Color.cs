@@ -5,10 +5,15 @@ static class Color {
 		public static implicit operator rlColor(RGB @this) => new(@this.r, @this.g, @this.b, (byte)255);
 	}
 
+	public readonly record struct B(float b) {
+		public static implicit operator B(float b) => new(b);
+		public static implicit operator float(B @this) => @this.b;
+	}
+
 	public readonly record struct HS(float h, float s);
 
 	public readonly record struct HSB(float h, float s, float b) {
-		public HSB(HS hs, float b) : this(hs.h, hs.s, b) { }
+		public HSB(HS hs, B b) : this(hs.h, hs.s, b) { }
 
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public RGB ToRGB() {
@@ -19,7 +24,7 @@ static class Color {
 
 			float chroma = this.b * this.s;
 			float hue60 = this.h * 6f;
-			float x = chroma * (1 - Abs(hue60 % 2 - 1));
+			float x = chroma * (1 - MathF.Abs(hue60 % 2 - 1));
 			float r, g, b;
 
 			switch (hue60) {
@@ -71,8 +76,8 @@ static class Color {
 		public static HSL FromRGB(RGB rgb) => FromRGB(rgb.r / 255f, rgb.g / 255f, rgb.b / 255f);
 
 		public static HSL FromRGB(float r, float g, float b) {
-			float max = Max(r, Max(g, b));
-			float min = Min(r, Min(g, b));
+			float max = MathF.Max(r, MathF.Max(g, b));
+			float min = MathF.Min(r, MathF.Min(g, b));
 			float h, s, l;
 
 			l = (max + min) / 2f;

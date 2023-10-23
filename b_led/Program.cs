@@ -1,15 +1,13 @@
-﻿#pragma warning disable CS8981 // The type name only contains lower-cased ascii characters. Such names may become reserved for the language.
-//# global
-global using System;
+﻿global using System;
 global using System.Numerics;
 global using rlImGui_cs;
 global using ImGuiNET;
-//# aliases
 global using rl = Raylib_cs.Raylib;
 global using rlColor = Raylib_cs.Color;
 using System.Diagnostics;
-using System.Diagnostics.CodeAnalysis;
+using b_effort.b_led;
 using Raylib_cs;
+
 //# static
 
 /*
@@ -41,8 +39,8 @@ unsafe {
 }
 
 var state = new State() {
-	Generator = new SinGenerator(),
-	ColorGenerator = new HSBDemoColorGenerator(),
+	Pattern = new SinPattern(),
+	ColorPattern = new HSBDemoPattern(),
 };
 
 using var previewWindow = new PreviewWindow(state);
@@ -84,8 +82,8 @@ void DrawUI() {
 sealed class State {
 	public const int BufferSize = 128;
 
-	public required Generator Generator { get; set; }
-	public required ColorGenerator ColorGenerator { get; set; }
+	public required Pattern Pattern { get; set; }
+	public required ColorPattern ColorPattern { get; set; }
 
 	public readonly Color.RGB[,] outputBuffer = new Color.RGB[BufferSize, BufferSize];
 
@@ -98,8 +96,8 @@ sealed class State {
 				float xPercent = x / (float)(BufferSize - 1);
 				float yPercent = y / (float)(BufferSize - 1);
 
-				var brightness = this.Generator.Generate(i, xPercent, yPercent);
-				var hs = this.ColorGenerator.Generate(i, xPercent, yPercent);
+				var brightness = this.Pattern.Generate(i, xPercent, yPercent);
+				var hs = this.ColorPattern.Generate(i, xPercent, yPercent);
 				outputs[x, y] = new Color.HSB(hs, brightness).ToRGB();
 			}
 		}
@@ -158,47 +156,16 @@ sealed class PreviewWindow : IDisposable {
 
 #region framework stuff
 
-interface Generator {
-	float Generate(int index, float x, float y);
+interface Pattern {
+	Color.B Generate(int index, float x, float y);
 }
 
-class GeneratorSlot {
-	public Generator Generator { get; }
-	public IntensityBlendMode BlendMode { get; }
 
-	public GeneratorSlot(Generator generator, IntensityBlendMode blendMode) {
-		this.Generator = generator;
-		this.BlendMode = blendMode;
-	}
-}
-
-interface ColorGenerator {
+interface ColorPattern {
 	Color.HS Generate(int index, float x, float y);
 }
 
-class GeneratorGroup : Generator {
-	readonly GeneratorSlot[] generators;
-
-	public GeneratorGroup(params GeneratorSlot[] generators) {
-		this.generators = generators;
-	}
-
-	public float Generate(int index, float x, float y) {
-		float result = float.NaN;
-
-		foreach (var slot in this.generators) {
-			float currentValue = slot.Generator.Generate(index, x, y);
-
-			result = float.IsNaN(result)
-				? currentValue
-				: slot.BlendMode.Blend(result, currentValue);
-		}
-
-		return result;
-	}
-}
-
-enum IntensityBlendMode {
+enum BrightnessBlendMode {
 	LAST,
 	AND,
 	OR,
@@ -209,65 +176,39 @@ enum IntensityBlendMode {
 	AVG,
 }
 
-static class IntensityBlendModeExtensions {
-	public static float Blend(this IntensityBlendMode mode, float a, float b, float threshold = 0.01f) {
+static class BrightnessBlendModeExtensions {
+	public static float Blend(this BrightnessBlendMode mode, float a, float b, float threshold = 0.01f) {
 		return mode switch {
-			IntensityBlendMode.LAST => b,
-			IntensityBlendMode.AND  => b >= threshold ? a : 0,
-			IntensityBlendMode.OR   => MathF.Max(a, b),
-			IntensityBlendMode.NOT  => b >= threshold ? 0 : a,
-			IntensityBlendMode.XOR  => (a >= threshold) ^ (b >= threshold) ? MathF.Max(a, b) : 0,
-			IntensityBlendMode.ADD  => a + b,
-			IntensityBlendMode.SUB  => a - b,
-			IntensityBlendMode.AVG  => (a + b) / 2,
-			_                       => throw new ArgumentOutOfRangeException(nameof(mode), mode, null),
+			BrightnessBlendMode.LAST => b,
+			BrightnessBlendMode.AND  => b >= threshold ? a : 0,
+			BrightnessBlendMode.OR   => MathF.Max(a, b),
+			BrightnessBlendMode.NOT  => b >= threshold ? 0 : a,
+			BrightnessBlendMode.XOR  => (a >= threshold) ^ (b >= threshold) ? MathF.Max(a, b) : 0,
+			BrightnessBlendMode.ADD  => a + b,
+			BrightnessBlendMode.SUB  => a - b,
+			BrightnessBlendMode.AVG  => (a + b) / 2,
+			_                        => throw new ArgumentOutOfRangeException(nameof(mode), mode, null),
 		};
 	}
 }
 
 #endregion
 
-static class Clock {
-	static readonly Stopwatch timer = Stopwatch.StartNew();
+static class BMath {
+	public const float PI2 = MathF.PI * 2;
 
-	public static float T => (float)timer.Elapsed.TotalSeconds;
-}
+	public static float Sin01(float x) {
+		float sin = MathF.Sin(x * PI2);
+		return (sin + 1) / 2;
+	}
 
-#region generators
-
-sealed class HSBDemoGenerator : Generator {
-	public float Generate(int index, float x, float y) {
-		return x >= 0.5 && y < 0.5
-			? (MathF.Sin((y - 0.25f) * 2 * MathF.PI) + 1) / 2
-			: 1;
+	public static float Cos01(float x) {
+		float cos = MathF.Cos(x * PI2);
+		return (cos + 1) / 2;
 	}
 }
-
-sealed class SinGenerator : Generator {
-	public float Generate(int index, float x, float y) {
-		return MathF.Sin(x + Clock.T);
-	}
-}
-
-#endregion
-
-#region color generators
-
-sealed class HSBDemoColorGenerator : ColorGenerator {
-	public Color.HS Generate(int index, float x, float y) {
-		return new Color.HS(
-			x,
-			x < 0.5 && y < 0.5
-				? y * 2
-				: 1
-		);
-	}
-}
-
-#endregion
 
 static class imUtil {
-	[SuppressMessage("ReSharper", "PossibleLossOfFraction")]
 	public static void ImageTextureFit(Texture2D texture, bool center = true) {
 		Vector2 area = ImGui.GetContentRegionAvail();
 
@@ -282,8 +223,10 @@ static class imUtil {
 
 		if (center) {
 			ImGui.SetCursorPosX(0);
+			// ReSharper disable PossibleLossOfFraction
 			ImGui.SetCursorPosX(area.X / 2 - sizeX / 2);
 			ImGui.SetCursorPosY(ImGui.GetCursorPosY() + (area.Y / 2 - sizeY / 2));
+			// ReSharper restore PossibleLossOfFraction
 		}
 
 		rlImGui.ImageSize(texture, sizeX, sizeY);
