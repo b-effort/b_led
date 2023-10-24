@@ -1,6 +1,8 @@
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 
 static class Color {
+	[StructLayout(LayoutKind.Sequential, Size = 4)]
 	public readonly record struct RGB(byte r, byte g, byte b) {
 		public static implicit operator rlColor(RGB @this) => new(@this.r, @this.g, @this.b, (byte)255);
 	}
@@ -10,7 +12,7 @@ static class Color {
 		public static implicit operator float(B @this) => @this.b;
 	}
 
-	public readonly record struct HS(float h, float s);
+	public readonly record struct HS(float h, float s = 1);
 
 	public readonly record struct HSB(float h, float s, float b) {
 		public HSB(HS hs, B b) : this(hs.h, hs.s, b) { }
