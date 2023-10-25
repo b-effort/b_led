@@ -151,24 +151,6 @@ sealed class PreviewWindow : IDisposable {
 
 #endregion
 
-static class BMath {
-	public const float PI2 = MathF.PI * 2;
-
-	public static float clamp(float x, float min = 0f, float max = 1f) => Math.Clamp(x, min, max);
-
-	public static float sin(float x) => MathF.Sin(x);
-	public static float sin01(float x) => (sin(x * PI2) + 1) / 2;
-	public static float tan(float x) => MathF.Tan(x);
-	public static float sec(float x) => 1f / cos(x);
-
-	public static float cos(float x) => MathF.Cos(x);
-	public static float cos01(float x) => (cos(x * PI2) + 1) / 2;
-	public static float cot(float x) => 1f / tan(x);
-	public static float csc(float x) => 1f / sin(x);
-
-	public static class fx { }
-}
-
 static class imUtil {
 	public static void ImageTextureFit(Texture2D texture, bool center = true) {
 		Vector2 area = ImGui.GetContentRegionAvail();
