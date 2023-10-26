@@ -4,6 +4,7 @@ global using rlImGui_cs;
 global using ImGuiNET;
 global using rl = Raylib_cs.Raylib;
 global using rlColor = Raylib_cs.Color;
+using System.Collections.Generic;
 using System.Diagnostics;
 using b_effort.b_led;
 using Raylib_cs;
@@ -31,20 +32,46 @@ const int FPS = 144;
 const int Width = 1920;
 const int Height = 1200;
 
+#region setup
+
 rl.SetConfigFlags(ConfigFlags.FLAG_WINDOW_RESIZABLE);
 rl.InitWindow(Width, Height, "b_led");
 rl.SetTargetFPS(FPS);
 
+rlImGui.SetupUserFonts = io => {
+	io.Fonts.Clear();
+	ImFontConfig fontCfg = new ImFontConfig {
+		OversampleH = 3,
+		OversampleV = 3,
+		PixelSnapH = 1,
+		RasterizerMultiply = 1,
+		GlyphMaxAdvanceX = float.MaxValue,
+		FontDataOwnedByAtlas = 1,
+	};
+	unsafe { //
+		const int sizePixels = 17 * 96 / 72;
+		io.Fonts.AddFontFromFileTTF("assets/JetBrainsMono-Regular.ttf", sizePixels, &fontCfg);
+	}
+};
 rlImGui.Setup(enableDocking: true);
-unsafe {
-	ImGui.GetIO().NativePtr->IniFilename = null;
-}
+ImGui.GetStyle().ScaleAllSizes(22 / 13f);
 
 var state = new State() {
 	Pattern = new TestPattern(),
+	LEDMappers = Array.Empty<LEDMapper>(),
 };
 
 using var previewWindow = new PreviewWindow(state);
+var funcPlotterWindow = new FuncPlotterWindow {
+	Funcs = new() {
+		("saw", PatternScript.saw),
+		("sine", PatternScript.sine),
+		("triangle", PatternScript.triangle),
+		("square", PatternScript.square),
+	},
+};
+
+#endregion
 
 var deltaTimer = Stopwatch.StartNew();
 float deltaTime = 1f / FPS;
@@ -55,11 +82,11 @@ while (!rl.WindowShouldClose()) {
 	rl.BeginDrawing();
 	{
 		rl.ClearBackground(rlColor.BLACK);
-		rl.DrawFPS(8, 8);
 
 		rlImGui.Begin(deltaTime);
 		DrawUI();
 		rlImGui.End();
+		rl.DrawFPS(Width - 88, 8);
 	}
 	rl.EndDrawing();
 
@@ -73,24 +100,38 @@ return;
 
 void Update(float dt) {
 	state.Update(dt);
-	previewWindow.Update();
 }
 
 void DrawUI() {
+	ImGui.DockSpaceOverViewport();
 	previewWindow.Show();
+	funcPlotterWindow.Show();
+	// LEDMap x = new LEDMap() {
+	// 	name = "",
+	// 	leds = Array.Empty<Vector2>(),
+	// };
 }
 
+struct LEDMap {
+	public required string name;
+	public required Vector2[] leds;
+}
+
+delegate LEDMap LEDMapper(int numPixels);
+
 sealed class State {
-	public const int BufferWidth = 256;
+	public const int BufferWidth = 64;
+	public const int NumPixels = 128;
 
 	public required Pattern Pattern { get; set; }
+	public required LEDMapper[] LEDMappers { get; set; }
 
-	public readonly Color.RGB[,] outputBuffer = new Color.RGB[BufferWidth, BufferWidth];
+	public readonly Color.RGB[,] previewBuffer = new Color.RGB[BufferWidth, BufferWidth];
 
 	public void Update(float dt) {
 		this.Pattern.Update(dt);
 
-		var outputs = this.outputBuffer;
+		var outputs = this.previewBuffer;
 		var patternPixels = this.Pattern.pixels;
 
 		for (var y = 0; y < BufferWidth; y++) {
@@ -117,9 +158,7 @@ sealed class PreviewWindow : IDisposable {
 		this.texture = rl.LoadTextureFromImage(this.image);
 	}
 
-	~PreviewWindow() {
-		this.Dispose();
-	}
+	~PreviewWindow() => this.Dispose();
 
 	public void Dispose() {
 		rl.UnloadImage(this.image);
@@ -127,23 +166,50 @@ sealed class PreviewWindow : IDisposable {
 		GC.SuppressFinalize(this);
 	}
 
-	public unsafe void Update() {
+	public unsafe void Show() {
 		var pixels = (rlColor*)this.image.data;
-		var buffer = this.state.outputBuffer;
+		var buffer = this.state.previewBuffer;
 		for (var y = 0; y < Resolution; y++) {
 			for (var x = 0; x < Resolution; x++) {
 				pixels[y * Resolution + x] = buffer[y, x];
 			}
 		}
-
 		rl.UpdateTexture(this.texture, pixels);
-	}
 
-	public void Show() {
 		ImGui.SetNextWindowSize(new Vector2(512));
 		ImGui.Begin("preview");
 		{
 			imUtil.ImageTextureFit(this.texture);
+		}
+		ImGui.End();
+	}
+}
+
+sealed class FuncPlotterWindow {
+	const int Resolution = State.BufferWidth;
+
+	public List<(string name, Func<float, float> f)> Funcs { get; init; } = new();
+
+	readonly float[] points = new float[Resolution];
+
+	bool animate;
+
+	public void Show() {
+		ImGui.SetNextWindowSize(new Vector2(20, 10) * ImGui.GetFontSize(), ImGuiCond.FirstUseEver);
+		ImGui.Begin("f(x) plotter");
+		{
+			ImGui.Checkbox("animate", ref this.animate);
+
+			var points = this.points;
+			foreach (var (name, f) in this.Funcs) {
+				for (var i = 0; i < Resolution; i++) {
+					var x = (float)i / Resolution;
+					if (this.animate)
+						x += PatternScript.t / 2;
+					points[i] = f(x * 2);
+				}
+				ImGui.PlotLines(name, ref points[0], points.Length);
+			}
 		}
 		ImGui.End();
 	}

@@ -7,7 +7,7 @@
         <ImplicitUsings>disable</ImplicitUsings>
         <Nullable>enable</Nullable>
         <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-        <NoWarn>1701;1702;8981</NoWarn>
+        <NoWarn>0414;1701;1702;8981</NoWarn>
 
         <RunWorkingDirectory>$(MSBuildThisFileDirectory)</RunWorkingDirectory>
     </PropertyGroup>
@@ -23,6 +23,7 @@
 
     <ItemGroup>
         <Folder Include="assets\" />
+        <None Remove="imgui.ini" />
     </ItemGroup>
 
 </Project>

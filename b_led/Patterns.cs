@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 
 namespace b_effort.b_led;
 
@@ -7,7 +8,6 @@ using static PatternScript;
 
 abstract class Pattern {
 	const int BufferWidth = State.BufferWidth;
-	protected const int PixelCount = BufferWidth * BufferWidth;
 
 	public readonly Color.HSB[,] pixels = new Color.HSB[BufferWidth, BufferWidth];
 
@@ -31,20 +31,25 @@ abstract class Pattern {
 
 static class BMath {
 	public const float PI = MathF.PI;
-	public const float PI2 = PI * 2;
+	public const float TAU = PI * 2;
+	public const float PI2 = TAU;
+
+	public static float abs(float x) => MathF.Abs(x);
+	public static float clamp(float x, float min = 0f, float max = 1f) => Math.Clamp(x, min, max);
+	public static float sign(float x) => MathF.Sign(x);
 
 	public static float sqr(float x) => x * x;
 	public static float sqrt(float x) => MathF.Sqrt(x);
 
-	public static float clamp(float x, float min = 0f, float max = 1f) => Math.Clamp(x, min, max);
-
+	// Trig
 	public static float sin(float x) => MathF.Sin(x);
-	public static float sin01(float x) => (sin(x * PI2) + 1) / 2;
+	public static float sin01(float x) => (sin(x * TAU) + 1) / 2;
 	public static float tan(float x) => MathF.Tan(x);
 	public static float sec(float x) => 1f / cos(x);
 
+	// Trig complements
 	public static float cos(float x) => MathF.Cos(x);
-	public static float cos01(float x) => (cos(x * PI2) + 1) / 2;
+	public static float cos01(float x) => (cos(x * TAU) + 1) / 2;
 	public static float cot(float x) => 1f / tan(x);
 	public static float csc(float x) => 1f / sin(x);
 
@@ -56,20 +61,24 @@ static class PatternScript {
 
 	public static TimeSpan tspan => timer.Elapsed;
 	public static float t => (float)tspan.TotalSeconds;
+	public static float interval(float seconds) => t % seconds / seconds;
 
+	public static float saw(float x) => x % 1f;
+	public static float sine(float x) => sin01(x - 0.25f);
 	public static float triangle(float x) {
-		float x2 = x * 2;
-		return x2 <= 1f ? x2 : 2 - x2;
+		float x2 = x % 1 * 2;
+		return x2 <= 1f ? x2 : 2f - x2;
 	}
+	public static float square(float x) => pulse(x, 0.5f);
+	public static float pulse(float x, float dutyCycle) => x % 1 >= 1 - dutyCycle % 1 ? 1f : 0f;
 
+	[SuppressMessage("ReSharper", "MemberHidesStaticFromOuterClass")]
 	public static class wave {
-		public static float saw(float interval) {
-			float intervalMs = interval * 1000;
-			return (float)((tspan.TotalMilliseconds % intervalMs) / intervalMs);
-		}
-		public static float sine(float interval) => sin01(saw(interval));
-		// ReSharper disable once MemberHidesStaticFromOuterClass
-		public static float triangle(float interval) => PatternScript.triangle(saw(interval));
+		public static float saw(float seconds) => interval(seconds);
+		public static float sine(float seconds) => PatternScript.sine(interval(seconds));
+		public static float triangle(float seconds) => PatternScript.triangle(interval(seconds));
+		public static float square(float seconds) => PatternScript.square(interval(seconds));
+		public static float pulse(float seconds, float dutyCycle) => PatternScript.pulse(interval(seconds), dutyCycle);
 	}
 }
 
@@ -80,14 +89,12 @@ sealed class TestPattern : Pattern {
 		x *= 3;
 		y *= 3;
 
-		float xy = x / y;
-		var sign = MathF.Sign(xy);
-		float wav = wave.sine(sign * clamp(float.Abs(xy), 0.5f, 2f));
-		// float wav = 1;
-		var h = (sin(x * 10) + cos(t * 0.9f)) / (sin(y * 10) + sin(t)) * wav;
-		var b = h is < 0.1f and > -0.5f ? 1 : 0;
+		var h = (sin(x * 10) + csc(t * 0.7f))
+		      / (sin(y * 10) + csc(t));
+		var t3 = t * 0.1f;
+		var b = abs(h) < t3 ? 1 : 0;
 
-		h = h + 0.25f + wave.sine(10) * 0.5f;
+		h = h + 0.25f + wave.sine(60) * 0.5f;
 
 		return new Color.HSB(h, 1, b);
 

@@ -3,6 +3,10 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "b_led", "b_led\b_led.csproj", "{8902B9DF-8BF0-48CE-B4D2-8E17748CF39E}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{E7CA10DE-8AFE-4693-A0FD-71CC7F8C1074}"
+	ProjectSection(SolutionItems) = preProject
+		.gitignore = .gitignore
+		.gitmodules = .gitmodules
+	EndProjectSection
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "rlImGui", "modules\rlImGui-cs\rlImGui\rlImGui.csproj", "{139E9F68-B613-4136-A450-5B8561CFB191}"
 EndProject

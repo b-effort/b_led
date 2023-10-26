@@ -1,5 +1,17 @@
-bin/
-obj/
-/packages/
-riderModule.iml
-/_ReSharper.Caches/
+# ImGui
+imgui.ini
+
+
+# .NET
+*.suo
+*.user
+.vs/
+[Bb]in/
+[Oo]bj/
+_UpgradeReport_Files/
+[Pp]ackages/
+
+# OS
+Thumbs.db
+Desktop.ini
+.DS_Store
