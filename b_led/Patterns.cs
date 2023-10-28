@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 
 namespace b_effort.b_led;
@@ -33,101 +32,10 @@ static class BMath {
 	public static class fx { }
 }
 
-record struct Tempo(float bpm) {
-	public static readonly Tempo Zero = 0f;
-
-	public float bpm = bpm;
-
-	public const int MinUsableBPM = 20;
-	public bool IsUsable => this.bpm >= MinUsableBPM;
-	public float BeatsPerSecond => this.bpm / 60;
-	public float SecondsPerBeat => 1f / this.BeatsPerSecond;
-
-	public static Tempo FromBeatDuration(TimeSpan secondsPerBeat) =>
-		new((float)(60 / secondsPerBeat.TotalSeconds));
-
-	public static implicit operator float(Tempo @this) => @this.bpm;
-	public static implicit operator Tempo(float bpm) => new(bpm);
-
-	public static implicit operator bool(Tempo @this) => @this != Zero;
-
-	public Tempo Rounded() => MathF.Round(this.bpm, MidpointRounding.ToEven);
-}
-
-static class Metronome {
-	public static readonly Stopwatch timer = Stopwatch.StartNew();
-
-	public static Tempo tempo = 128;
-	public static float speed = 1f;
-	static float lastBeatProgress = 0f;
-
-	public static TimeSpan Elapsed => timer.Elapsed;
-	public static float DownbeatOffset { get; private set; }
-	public static float T => ((float)Elapsed.TotalSeconds - DownbeatOffset) * tempo.BeatsPerSecond * speed;
-	public static float BeatProgress => T % 1f;
-	public static bool IsOnBeat { get; private set; }
-	public static float TLastBeat { get; private set; }
-	public static float BeatPulse => IsOnBeat ? 1f : 0f;
-
-	public static void Tick() {
-		IsOnBeat = BeatProgress < lastBeatProgress;
-		if (IsOnBeat) {
-			TLastBeat = T;
-		}
-		lastBeatProgress = BeatProgress;
-	}
-
-	public static void SetDownbeat() {
-		DownbeatOffset = BeatProgress;
-		Tick();
-	}
-
-	public static float Interval(float beats) => t % beats / beats;
-
-#region tap tempo
-
-	static readonly TimeSpan TapResetTime = new(0, 0, seconds: 2);
-	const int MinTaps = 4;
-
-	static readonly Stopwatch tapTimer = Stopwatch.StartNew();
-	static TimeSpan tappingTime = -TapResetTime;
-	public static int tapCounter = 0;
-
-	public static Tempo TapTempoRealtime
-		=> tapCounter > 1
-			? Tempo.FromBeatDuration(tappingTime / (tapCounter - 1))
-			: Tempo.Zero;
-
-	public static Tempo TapTempo
-		=> tapCounter >= MinTaps
-		&& TapTempoRealtime.IsUsable
-			? TapTempoRealtime.Rounded()
-			: Tempo.Zero;
-
-	static TimeSpan SinceLastTap => tapTimer.Elapsed - tappingTime;
-
-	public static void Tap(bool apply = true) {
-		if (SinceLastTap >= TapResetTime) {
-			tapCounter = 0;
-			tappingTime = TimeSpan.Zero;
-			tapTimer.Restart();
-		} else {
-			tappingTime = tapTimer.Elapsed;
-		}
-		tapCounter++;
-
-		if (apply && TapTempo) {
-			tempo = TapTempo;
-			SetDownbeat();
-		}
-	}
-
-#endregion
-}
-
 static class PatternScript {
 	public static float t => Metronome.T;
-	public static float interval(float beats) => t % beats / beats;
+	public static float dt => Metronome.TDelta;
+	public static float interval(float beats) => Metronome.Interval(beats);
 
 	public static float saw(float x) => x % 1f;
 	public static float sine(float x) => sin01(x - 0.25f);
@@ -153,8 +61,8 @@ abstract class Pattern {
 
 	public readonly Color.HSB[,] pixels = new Color.HSB[BufferWidth, BufferWidth];
 
-	public void Update(float dt) {
-		this.PreRender(dt);
+	public void Update() {
+		this.PreRender();
 		for (var y = 0; y < BufferWidth; y++) {
 			for (var x = 0; x < BufferWidth; x++) {
 				int i = y * BufferWidth + x;
@@ -167,7 +75,7 @@ abstract class Pattern {
 		}
 	}
 
-	protected virtual void PreRender(float dt) { }
+	protected virtual void PreRender() { }
 	protected abstract Color.HSB Render(int i, float x, float y);
 }
 
@@ -175,15 +83,15 @@ sealed class TestPattern : Pattern {
 	protected override Color.HSB Render(int i, float x, float y) {
 		x -= 0.5f;
 		y -= 0.5f;
-		x *= 3;
-		y *= 3;
+		x *= 5 + beat.saw(24 * 2) * 50;
+		y *= 5 + beat.saw(40 * 2) * 50;
 
-		var h = (sin(x * 10) + cos(t * 0.48f))
-		  / (sin(y * 10) + sin(t * 0.5f)) + beat.saw();
-		var t3 = t * 0.1f;
+		var h = (sin(x) + cos(t * 0.15f))
+		  / (sin(y + sin(x * t / 5f) * 0.5f) + sin(t * 0.5f)) + beat.saw(4);
+		var t3 = beat.saw(4) * 0.5f + 0.1f;
 		var b = abs(h) < t3 ? 1 : 0;
 
-		h = h + 0.25f + beat.sine(60) * 0.5f;
+		h = h + 0.25f + beat.saw(2);
 
 		return new Color.HSB(h, 1, b);
 

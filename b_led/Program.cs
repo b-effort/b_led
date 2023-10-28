@@ -1,21 +1,22 @@
 ﻿global using System;
 global using System.Collections.Generic;
 global using System.Numerics;
-global using rlImGui_cs;
-global using ImGuiNET;
+global using Color = b_effort.b_led.Color;
+global using Raylib_cs;
 global using rl = Raylib_cs.Raylib;
 global using rlColor = Raylib_cs.Color;
+global using rlImGui_cs;
+global using ImGuiNET;
 global using MethodImplAttribute = System.Runtime.CompilerServices.MethodImplAttribute;
 global using MethodImplOptions = System.Runtime.CompilerServices.MethodImplOptions;
-using System.Diagnostics;
 using b_effort.b_led;
-using Raylib_cs;
 
 
 /*
 
 # Runway
-- clock ui
+- pattern banks
+- palettes
 
 
 # Mapping
@@ -23,20 +24,12 @@ https://electromage.com/docs/intro-to-mapping
 1u = 1cm
 ([0, 1]], [0, 1])
 
-buffers are [y, x]
-
-# FX
-Can be combined with boolean (& | ! ^) or f(a, b) logic.
-One class can be multiple types.
-
-Types:
-	- brightness
-	- color (hue & saturation)
+buffers are [y, x] = [y * width + x]
  */
 
 const int FPS = 144;
-const int Width = 1920;
-const int Height = 1200;
+const int Width = 1280;
+const int Height = 720;
 
 #region setup
 
@@ -80,34 +73,28 @@ var funcPlotterWindow = new FuncPlotterWindow {
 
 #endregion
 
-var deltaTimer = Stopwatch.StartNew();
-float deltaTime = 1f / FPS;
-
 while (!rl.WindowShouldClose()) {
-	Update(deltaTime);
+	Update();
 
 	rl.BeginDrawing();
 	{
 		rl.ClearBackground(rlColor.BLACK);
 
-		rlImGui.Begin(deltaTime);
+		rlImGui.Begin(Metronome.TDelta);
 		DrawUI();
 		rlImGui.End();
 		rl.DrawFPS(Width - 88, 8);
 	}
 	rl.EndDrawing();
-
-	deltaTime = (float)deltaTimer.Elapsed.TotalSeconds;
-	deltaTimer.Restart();
 }
 
 rlImGui.Shutdown();
 rl.CloseWindow();
 return;
 
-void Update(float dt) {
+void Update() {
 	Metronome.Tick();
-	state.Update(dt);
+	state.Update();
 }
 
 void DrawUI() {
@@ -129,7 +116,7 @@ struct LEDMap {
 delegate LEDMap LEDMapper(int numPixels);
 
 sealed class State {
-	public const int BufferWidth = 128;
+	public const int BufferWidth = 256;
 	public const int NumPixels = 128;
 
 	public required Pattern Pattern { get; set; }
@@ -137,8 +124,8 @@ sealed class State {
 
 	public readonly Color.RGB[,] previewBuffer = new Color.RGB[BufferWidth, BufferWidth];
 
-	public void Update(float dt) {
-		this.Pattern.Update(dt);
+	public void Update() {
+		this.Pattern.Update();
 
 		var outputs = this.previewBuffer;
 		var patternPixels = this.Pattern.pixels;

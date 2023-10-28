@@ -1,4 +1,3 @@
-using Raylib_cs;
 using static ImGuiNET.ImGui;
 using static b_effort.b_led.ImGuiShorthand;
 
@@ -56,16 +55,28 @@ sealed class MetronomeWindow {
 			if (Button("tap")) {
 				Metronome.Tap();
 			}
-			var tapTempo = Metronome.TapTempo.Rounded();
-			if (tapTempo) {
-				SameLine();
-				Text($"tap tempo {tapTempo.bpm.ToString()}");
+
+			SameLine();
+			var bpmStr = Metronome.TapTempo.bpm.ToString("000.00");
+			if (Metronome.TapTempo && !Metronome.IsTapTempoStale)
+				Text(bpmStr);
+			else
+				TextDisabled(bpmStr);
+
+			SameLine();
+			if (Button("set")) {
+				Metronome.ApplyTapTempo();
+				Metronome.SetDownbeat();
+			}
+
+			SameLine();
+			if (Button("downbeat")) {
+				Metronome.SetDownbeat();
 			}
 
 			InputFloat("tempo", ref Metronome.tempo.bpm, 1f, 10f, "%.2f");
 
 			var points = this.beatPoints;
-			// points[this.beatOffset] = PatternScript.beat.saw(0.5f);
 			points[this.beatOffset] = Metronome.BeatPulse;
 			this.beatOffset = points.NextOffset(this.beatOffset);
 			PlotLines("beat", ref points[0], points.Length, this.beatOffset);

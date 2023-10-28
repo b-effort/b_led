@@ -1,6 +1,10 @@
 using System.Runtime.InteropServices;
 
+namespace b_effort.b_led;
+
 static class Color {
+	public static HSB hsb(float h, float s, float b) => new(h, s, b);
+
 	[StructLayout(LayoutKind.Sequential, Size = 4)]
 	public readonly record struct RGB(byte r, byte g, byte b) {
 		public static implicit operator rlColor(RGB @this) => new(@this.r, @this.g, @this.b, (byte)255);
@@ -69,6 +73,8 @@ static class Color {
 				b: (byte)((b + m) * 255 + 0.5f)
 			);
 		}
+
+		public static implicit operator Vector4(HSB @this) => new(@this.h, @this.s, @this.b, 1f);
 	}
 
 	public readonly record struct HSL(float h, float s, float l) {
