@@ -1,17 +1,23 @@
 ﻿global using System;
+global using System.Collections.Generic;
 global using System.Numerics;
 global using rlImGui_cs;
 global using ImGuiNET;
 global using rl = Raylib_cs.Raylib;
 global using rlColor = Raylib_cs.Color;
-using System.Collections.Generic;
+global using MethodImplAttribute = System.Runtime.CompilerServices.MethodImplAttribute;
+global using MethodImplOptions = System.Runtime.CompilerServices.MethodImplOptions;
 using System.Diagnostics;
 using b_effort.b_led;
 using Raylib_cs;
 
-//# static
 
 /*
+
+# Runway
+- clock ui
+
+
 # Mapping
 https://electromage.com/docs/intro-to-mapping
 1u = 1cm
@@ -62,6 +68,7 @@ var state = new State() {
 };
 
 using var previewWindow = new PreviewWindow(state);
+var metronomeWindow = new MetronomeWindow();
 var funcPlotterWindow = new FuncPlotterWindow {
 	Funcs = new() {
 		("saw", PatternScript.saw),
@@ -99,12 +106,14 @@ rl.CloseWindow();
 return;
 
 void Update(float dt) {
+	Metronome.Tick();
 	state.Update(dt);
 }
 
 void DrawUI() {
 	ImGui.DockSpaceOverViewport();
 	previewWindow.Show();
+	metronomeWindow.Show();
 	funcPlotterWindow.Show();
 	// LEDMap x = new LEDMap() {
 	// 	name = "",
@@ -120,7 +129,7 @@ struct LEDMap {
 delegate LEDMap LEDMapper(int numPixels);
 
 sealed class State {
-	public const int BufferWidth = 64;
+	public const int BufferWidth = 128;
 	public const int NumPixels = 128;
 
 	public required Pattern Pattern { get; set; }
@@ -141,134 +150,3 @@ sealed class State {
 		}
 	}
 }
-
-#region windows
-
-sealed class PreviewWindow : IDisposable {
-	const int Resolution = State.BufferWidth;
-
-	readonly Image image;
-	readonly Texture2D texture;
-
-	readonly State state;
-
-	public PreviewWindow(State state) {
-		this.state = state;
-		this.image = rl.GenImageColor(Resolution, Resolution, rlColor.BLACK);
-		this.texture = rl.LoadTextureFromImage(this.image);
-	}
-
-	~PreviewWindow() => this.Dispose();
-
-	public void Dispose() {
-		rl.UnloadImage(this.image);
-		rl.UnloadTexture(this.texture);
-		GC.SuppressFinalize(this);
-	}
-
-	public unsafe void Show() {
-		var pixels = (rlColor*)this.image.data;
-		var buffer = this.state.previewBuffer;
-		for (var y = 0; y < Resolution; y++) {
-			for (var x = 0; x < Resolution; x++) {
-				pixels[y * Resolution + x] = buffer[y, x];
-			}
-		}
-		rl.UpdateTexture(this.texture, pixels);
-
-		ImGui.SetNextWindowSize(new Vector2(512));
-		ImGui.Begin("preview");
-		{
-			imUtil.ImageTextureFit(this.texture);
-		}
-		ImGui.End();
-	}
-}
-
-sealed class FuncPlotterWindow {
-	const int Resolution = State.BufferWidth;
-
-	public List<(string name, Func<float, float> f)> Funcs { get; init; } = new();
-
-	readonly float[] points = new float[Resolution];
-
-	bool animate;
-
-	public void Show() {
-		ImGui.SetNextWindowSize(new Vector2(20, 10) * ImGui.GetFontSize(), ImGuiCond.FirstUseEver);
-		ImGui.Begin("f(x) plotter");
-		{
-			ImGui.Checkbox("animate", ref this.animate);
-
-			var points = this.points;
-			foreach (var (name, f) in this.Funcs) {
-				for (var i = 0; i < Resolution; i++) {
-					var x = (float)i / Resolution;
-					if (this.animate)
-						x += PatternScript.t / 2;
-					points[i] = f(x * 2);
-				}
-				ImGui.PlotLines(name, ref points[0], points.Length);
-			}
-		}
-		ImGui.End();
-	}
-}
-
-#endregion
-
-static class imUtil {
-	public static void ImageTextureFit(Texture2D texture, bool center = true) {
-		Vector2 area = ImGui.GetContentRegionAvail();
-
-		float scale = area.X / texture.width;
-		float y = texture.height * scale;
-		if (y > area.Y) {
-			scale = area.Y / texture.height;
-		}
-
-		int sizeX = (int)(texture.width * scale);
-		int sizeY = (int)(texture.height * scale);
-
-		if (center) {
-			ImGui.SetCursorPosX(0);
-			// ReSharper disable PossibleLossOfFraction
-			ImGui.SetCursorPosX(area.X / 2 - sizeX / 2);
-			ImGui.SetCursorPosY(ImGui.GetCursorPosY() + (area.Y / 2 - sizeY / 2));
-			// ReSharper restore PossibleLossOfFraction
-		}
-
-		rlImGui.ImageSize(texture, sizeX, sizeY);
-	}
-}
-
-#region stuff i shouldn't have written yet
-
-enum BrightnessBlendMode {
-	LAST,
-	AND,
-	OR,
-	NOT,
-	XOR,
-	ADD,
-	SUB,
-	AVG,
-}
-
-static class BrightnessBlendModeExtensions {
-	public static float Blend(this BrightnessBlendMode mode, float a, float b, float threshold = 0.01f) {
-		return mode switch {
-			BrightnessBlendMode.LAST => b,
-			BrightnessBlendMode.AND  => b >= threshold ? a : 0,
-			BrightnessBlendMode.OR   => MathF.Max(a, b),
-			BrightnessBlendMode.NOT  => b >= threshold ? 0 : a,
-			BrightnessBlendMode.XOR  => (a >= threshold) ^ (b >= threshold) ? MathF.Max(a, b) : 0,
-			BrightnessBlendMode.ADD  => a + b,
-			BrightnessBlendMode.SUB  => a - b,
-			BrightnessBlendMode.AVG  => (a + b) / 2,
-			_                        => throw new ArgumentOutOfRangeException(nameof(mode), mode, null),
-		};
-	}
-}
-
-#endregion

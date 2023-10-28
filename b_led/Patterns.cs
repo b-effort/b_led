@@ -6,29 +6,6 @@ namespace b_effort.b_led;
 using static BMath;
 using static PatternScript;
 
-abstract class Pattern {
-	const int BufferWidth = State.BufferWidth;
-
-	public readonly Color.HSB[,] pixels = new Color.HSB[BufferWidth, BufferWidth];
-
-	public void Update(float dt) {
-		this.PreRender(dt);
-		for (var y = 0; y < BufferWidth; y++) {
-			for (var x = 0; x < BufferWidth; x++) {
-				int i = y * BufferWidth + x;
-				const float lengthMinusOne = BufferWidth - 1f;
-				float x01 = x / lengthMinusOne;
-				float y01 = y / lengthMinusOne;
-
-				this.pixels[y, x] = this.Render(i, x01, y01);
-			}
-		}
-	}
-
-	protected virtual void PreRender(float dt) { }
-	protected abstract Color.HSB Render(int i, float x, float y);
-}
-
 static class BMath {
 	public const float PI = MathF.PI;
 	public const float TAU = PI * 2;
@@ -56,12 +33,101 @@ static class BMath {
 	public static class fx { }
 }
 
-static class PatternScript {
-	static readonly Stopwatch timer = Stopwatch.StartNew();
+record struct Tempo(float bpm) {
+	public static readonly Tempo Zero = 0f;
 
-	public static TimeSpan tspan => timer.Elapsed;
-	public static float t => (float)tspan.TotalSeconds;
-	public static float interval(float seconds) => t % seconds / seconds;
+	public float bpm = bpm;
+
+	public const int MinUsableBPM = 20;
+	public bool IsUsable => this.bpm >= MinUsableBPM;
+	public float BeatsPerSecond => this.bpm / 60;
+	public float SecondsPerBeat => 1f / this.BeatsPerSecond;
+
+	public static Tempo FromBeatDuration(TimeSpan secondsPerBeat) =>
+		new((float)(60 / secondsPerBeat.TotalSeconds));
+
+	public static implicit operator float(Tempo @this) => @this.bpm;
+	public static implicit operator Tempo(float bpm) => new(bpm);
+
+	public static implicit operator bool(Tempo @this) => @this != Zero;
+
+	public Tempo Rounded() => MathF.Round(this.bpm, MidpointRounding.ToEven);
+}
+
+static class Metronome {
+	public static readonly Stopwatch timer = Stopwatch.StartNew();
+
+	public static Tempo tempo = 128;
+	public static float speed = 1f;
+	static float lastBeatProgress = 0f;
+
+	public static TimeSpan Elapsed => timer.Elapsed;
+	public static float DownbeatOffset { get; private set; }
+	public static float T => ((float)Elapsed.TotalSeconds - DownbeatOffset) * tempo.BeatsPerSecond * speed;
+	public static float BeatProgress => T % 1f;
+	public static bool IsOnBeat { get; private set; }
+	public static float TLastBeat { get; private set; }
+	public static float BeatPulse => IsOnBeat ? 1f : 0f;
+
+	public static void Tick() {
+		IsOnBeat = BeatProgress < lastBeatProgress;
+		if (IsOnBeat) {
+			TLastBeat = T;
+		}
+		lastBeatProgress = BeatProgress;
+	}
+
+	public static void SetDownbeat() {
+		DownbeatOffset = BeatProgress;
+		Tick();
+	}
+
+	public static float Interval(float beats) => t % beats / beats;
+
+#region tap tempo
+
+	static readonly TimeSpan TapResetTime = new(0, 0, seconds: 2);
+	const int MinTaps = 4;
+
+	static readonly Stopwatch tapTimer = Stopwatch.StartNew();
+	static TimeSpan tappingTime = -TapResetTime;
+	public static int tapCounter = 0;
+
+	public static Tempo TapTempoRealtime
+		=> tapCounter > 1
+			? Tempo.FromBeatDuration(tappingTime / (tapCounter - 1))
+			: Tempo.Zero;
+
+	public static Tempo TapTempo
+		=> tapCounter >= MinTaps
+		&& TapTempoRealtime.IsUsable
+			? TapTempoRealtime.Rounded()
+			: Tempo.Zero;
+
+	static TimeSpan SinceLastTap => tapTimer.Elapsed - tappingTime;
+
+	public static void Tap(bool apply = true) {
+		if (SinceLastTap >= TapResetTime) {
+			tapCounter = 0;
+			tappingTime = TimeSpan.Zero;
+			tapTimer.Restart();
+		} else {
+			tappingTime = tapTimer.Elapsed;
+		}
+		tapCounter++;
+
+		if (apply && TapTempo) {
+			tempo = TapTempo;
+			SetDownbeat();
+		}
+	}
+
+#endregion
+}
+
+static class PatternScript {
+	public static float t => Metronome.T;
+	public static float interval(float beats) => t % beats / beats;
 
 	public static float saw(float x) => x % 1f;
 	public static float sine(float x) => sin01(x - 0.25f);
@@ -73,13 +139,36 @@ static class PatternScript {
 	public static float pulse(float x, float dutyCycle) => x % 1 >= 1 - dutyCycle % 1 ? 1f : 0f;
 
 	[SuppressMessage("ReSharper", "MemberHidesStaticFromOuterClass")]
-	public static class wave {
-		public static float saw(float seconds) => interval(seconds);
-		public static float sine(float seconds) => PatternScript.sine(interval(seconds));
-		public static float triangle(float seconds) => PatternScript.triangle(interval(seconds));
-		public static float square(float seconds) => PatternScript.square(interval(seconds));
-		public static float pulse(float seconds, float dutyCycle) => PatternScript.pulse(interval(seconds), dutyCycle);
+	public static class beat {
+		public static float saw(float beats = 1f) => interval(beats);
+		public static float sine(float beats) => PatternScript.sine(interval(beats));
+		public static float triangle(float beats) => PatternScript.triangle(interval(beats));
+		public static float square(float beats) => PatternScript.square(interval(beats));
+		public static float pulse(float beats, float dutyCycle) => PatternScript.pulse(interval(beats), dutyCycle);
 	}
+}
+
+abstract class Pattern {
+	const int BufferWidth = State.BufferWidth;
+
+	public readonly Color.HSB[,] pixels = new Color.HSB[BufferWidth, BufferWidth];
+
+	public void Update(float dt) {
+		this.PreRender(dt);
+		for (var y = 0; y < BufferWidth; y++) {
+			for (var x = 0; x < BufferWidth; x++) {
+				int i = y * BufferWidth + x;
+				const float lengthMinusOne = BufferWidth - 1f;
+				float x01 = x / lengthMinusOne;
+				float y01 = y / lengthMinusOne;
+
+				this.pixels[y, x] = this.Render(i, x01, y01);
+			}
+		}
+	}
+
+	protected virtual void PreRender(float dt) { }
+	protected abstract Color.HSB Render(int i, float x, float y);
 }
 
 sealed class TestPattern : Pattern {
@@ -89,12 +178,12 @@ sealed class TestPattern : Pattern {
 		x *= 3;
 		y *= 3;
 
-		var h = (sin(x * 10) + csc(t * 0.7f))
-		      / (sin(y * 10) + csc(t));
+		var h = (sin(x * 10) + cos(t * 0.48f))
+		  / (sin(y * 10) + sin(t * 0.5f)) + beat.saw();
 		var t3 = t * 0.1f;
 		var b = abs(h) < t3 ? 1 : 0;
 
-		h = h + 0.25f + wave.sine(60) * 0.5f;
+		h = h + 0.25f + beat.sine(60) * 0.5f;
 
 		return new Color.HSB(h, 1, b);
 
@@ -105,7 +194,7 @@ sealed class TestPattern : Pattern {
 
 sealed class EdgeBurstPattern : Pattern {
 	protected override Color.HSB Render(int i, float x, float y) {
-		float t1 = wave.triangle(5f);
+		float t1 = beat.triangle(5f);
 		float edge = clamp(triangle(x) + t1 * 4 - 2);
 		float h = edge * edge - 0.2f;
 		float b = triangle(edge);
