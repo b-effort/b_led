@@ -1,30 +1,29 @@
-using System.Runtime.InteropServices;
-
 namespace b_effort.b_led;
 
 static class Color {
 	public static HSB hsb(float h, float s, float b) => new(h, s, b);
 
-	[StructLayout(LayoutKind.Sequential, Size = 4)]
-	public readonly record struct RGB(byte r, byte g, byte b) {
-		public static implicit operator rlColor(RGB @this) => new(@this.r, @this.g, @this.b, (byte)255);
-	}
+	public static byte f32_to_int8(float value) => (byte)(value * 255 + 0.5f);
 
-	public readonly record struct B(float b) {
-		public static implicit operator B(float b) => new(b);
-		public static implicit operator float(B @this) => @this.b;
-	}
+	public readonly record struct RGB(byte r, byte g, byte b, byte a = 255) {
+		[Impl(Inline)] public uint ToU32() {
+			return (uint)(
+				(this.r << 0)
+			  | (this.g << 8)
+			  | (this.b << 16)
+			  | (this.a << 24)
+			);
+		}
 
-	public readonly record struct HS(float h, float s = 1);
+
+		public static implicit operator rlColor(RGB @this) => new(@this.r, @this.g, @this.b, @this.a);
+	}
 
 	public readonly record struct HSB(float h, float s, float b) {
-		public HSB(HS hs, B b) : this(hs.h, hs.s, b) { }
-
-		[MethodImpl(MethodImplOptions.AggressiveInlining)]
-		public RGB ToRGB() {
+		[Impl(Inline)] public RGB ToRGB(float a = 1) {
 			if (this.s == 0) {
-				var value = (byte)(this.b * 255 + 0.5f);
-				return new RGB(value, value, value);
+				var value = f32_to_int8(this.b);
+				return new RGB(value, value, value, f32_to_int8(a));
 			}
 
 			float chroma = this.b * this.s;
@@ -65,21 +64,22 @@ static class Color {
 					break;
 			}
 
-			double m = this.b - chroma;
+			float m = this.b - chroma;
 
 			return new RGB(
-				r: (byte)((r + m) * 255 + 0.5f),
-				g: (byte)((g + m) * 255 + 0.5f),
-				b: (byte)((b + m) * 255 + 0.5f)
+				r: f32_to_int8(r + m),
+				g: f32_to_int8(g + m),
+				b: f32_to_int8(b + m),
+				a: f32_to_int8(a)
 			);
 		}
+
+		[Impl(Inline)] public uint ToU32() => this.ToRGB().ToU32();
 
 		public static implicit operator Vector4(HSB @this) => new(@this.h, @this.s, @this.b, 1f);
 	}
 
 	public readonly record struct HSL(float h, float s, float l) {
-		public HSL(HS hs, float l) : this(hs.h, hs.s, l) { }
-
 		public static HSL FromRGB(RGB rgb) => FromRGB(rgb.r / 255f, rgb.g / 255f, rgb.b / 255f);
 
 		public static HSL FromRGB(float r, float g, float b) {

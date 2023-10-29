@@ -3,6 +3,8 @@
   <component name="UserContentModel">
     <attachedFolders />
     <explicitIncludes />
-    <explicitExcludes />
+    <explicitExcludes>
+      <Path>modules/rlImGui-cs/rlImGui</Path>
+    </explicitExcludes>
   </component>
 </project>

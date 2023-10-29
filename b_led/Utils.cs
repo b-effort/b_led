@@ -1,10 +1,33 @@
+global using ImplAttribute = System.Runtime.CompilerServices.MethodImplAttribute;
 using System.Collections;
-using Raylib_cs;
+using System.Runtime.CompilerServices;
 
 namespace b_effort.b_led;
 
+static class MethodImplShorthand {
+	public const MethodImplOptions Inline = MethodImplOptions.AggressiveInlining;
+}
+
 static class CollectionExtensions {
 	public static int NextOffset(this ICollection @this, int offset) => (offset + 1) % @this.Count;
+}
+
+static class VectorShorthand {
+	[Impl(Inline)] public static Vector2 vec2(float value) => new(value);
+	[Impl(Inline)] public static Vector2 vec2(float x, float y) => new(x, y);
+}
+
+static class ImGuiShorthand {
+	static ImGuiStylePtr? style;
+	public static ImGuiStylePtr Style => style ??= ImGui.GetStyle();
+	public static float FontSize => ImGui.GetFontSize();
+
+	public static ImDrawListPtr DrawList => ImGui.GetWindowDrawList();
+
+	[Impl(Inline)] public static float em(float value) => value * FontSize;
+	[Impl(Inline)] public static Vector2 em(float x, float y) => em(new Vector2(x, y));
+	[Impl(Inline)] public static Vector2 em(Vector2 value) => value * FontSize;
+	[Impl(Inline)] public static int emEven(float value) => BMath.nearestEven(value * FontSize);
 }
 
 static class ImGuiUtil {
@@ -30,14 +53,6 @@ static class ImGuiUtil {
 
 		rlImGui.ImageSize(texture, sizeX, sizeY);
 	}
-}
-
-static class ImGuiShorthand {
-	static float FontSize => ImGui.GetFontSize();
-
-	public static float em(float value) => value * FontSize;
-	public static Vector2 em(float x, float y) => em(new Vector2(x, y));
-	public static Vector2 em(Vector2 value) => value * FontSize;
 }
 
 #region stuff i shouldn't have written yet

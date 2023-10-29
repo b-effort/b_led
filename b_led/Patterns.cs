@@ -10,24 +10,25 @@ static class BMath {
 	public const float TAU = PI * 2;
 	public const float PI2 = TAU;
 
-	public static float abs(float x) => MathF.Abs(x);
-	public static float clamp(float x, float min = 0f, float max = 1f) => Math.Clamp(x, min, max);
-	public static float sign(float x) => MathF.Sign(x);
+	[Impl(Inline)] public static float abs(float x) => MathF.Abs(x);
+	[Impl(Inline)] public static float clamp(float x, float min = 0f, float max = 1f) => Math.Clamp(x, min, max);
+	[Impl(Inline)] public static float sign(float x) => MathF.Sign(x);
+	[Impl(Inline)] public static int nearestEven(float x) => ((int)x + 1) & ~1;
 
-	public static float sqr(float x) => x * x;
-	public static float sqrt(float x) => MathF.Sqrt(x);
+	[Impl(Inline)] public static float sqr(float x) => x * x;
+	[Impl(Inline)] public static float sqrt(float x) => MathF.Sqrt(x);
 
 	// Trig
-	public static float sin(float x) => MathF.Sin(x);
-	public static float sin01(float x) => (sin(x * TAU) + 1) / 2;
-	public static float tan(float x) => MathF.Tan(x);
-	public static float sec(float x) => 1f / cos(x);
+	[Impl(Inline)] public static float sin(float x) => MathF.Sin(x);
+	[Impl(Inline)] public static float sin01(float x) => (sin(x * TAU) + 1) / 2;
+	[Impl(Inline)] public static float tan(float x) => MathF.Tan(x);
+	[Impl(Inline)] public static float sec(float x) => 1f / cos(x);
 
 	// Trig complements
-	public static float cos(float x) => MathF.Cos(x);
-	public static float cos01(float x) => (cos(x * TAU) + 1) / 2;
-	public static float cot(float x) => 1f / tan(x);
-	public static float csc(float x) => 1f / sin(x);
+	[Impl(Inline)] public static float cos(float x) => MathF.Cos(x);
+	[Impl(Inline)] public static float cos01(float x) => (cos(x * TAU) + 1) / 2;
+	[Impl(Inline)] public static float cot(float x) => 1f / tan(x);
+	[Impl(Inline)] public static float csc(float x) => 1f / sin(x);
 
 	public static class fx { }
 }
@@ -59,7 +60,7 @@ static class PatternScript {
 abstract class Pattern {
 	const int BufferWidth = State.BufferWidth;
 
-	public readonly Color.HSB[,] pixels = new Color.HSB[BufferWidth, BufferWidth];
+	public readonly HSB[,] pixels = new HSB[BufferWidth, BufferWidth];
 
 	public void Update() {
 		this.PreRender();
@@ -76,11 +77,11 @@ abstract class Pattern {
 	}
 
 	protected virtual void PreRender() { }
-	protected abstract Color.HSB Render(int i, float x, float y);
+	protected abstract HSB Render(int i, float x, float y);
 }
 
 sealed class TestPattern : Pattern {
-	protected override Color.HSB Render(int i, float x, float y) {
+	protected override HSB Render(int i, float x, float y) {
 		x -= 0.5f;
 		y -= 0.5f;
 		x *= 5 + beat.saw(24 * 2) * 50;
@@ -93,7 +94,7 @@ sealed class TestPattern : Pattern {
 
 		h = h + 0.25f + beat.saw(2);
 
-		return new Color.HSB(h, 1, b);
+		return hsb(h, 1, b);
 
 		// float h = float.Abs(x * (x % y) - y * (y % x));
 		// return new Color.HSB(h + 0.5f, 1, 1);
@@ -101,19 +102,19 @@ sealed class TestPattern : Pattern {
 }
 
 sealed class EdgeBurstPattern : Pattern {
-	protected override Color.HSB Render(int i, float x, float y) {
+	protected override HSB Render(int i, float x, float y) {
 		float t1 = beat.triangle(5f);
 		float edge = clamp(triangle(x) + t1 * 4 - 2);
 		float h = edge * edge - 0.2f;
 		float b = triangle(edge);
 
-		return new Color.HSB(h, 1, b);
+		return hsb(h, 1, b);
 	}
 }
 
 sealed class HSBDemoPattern : Pattern {
-	protected override Color.HSB Render(int i, float x, float y) {
-		return new Color.HSB(
+	protected override HSB Render(int i, float x, float y) {
+		return hsb(
 			h: x,
 			s: x < 0.5 && y < 0.5
 				? y * 2

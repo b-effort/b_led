@@ -7,10 +7,10 @@ global using rl = Raylib_cs.Raylib;
 global using rlColor = Raylib_cs.Color;
 global using rlImGui_cs;
 global using ImGuiNET;
-global using MethodImplAttribute = System.Runtime.CompilerServices.MethodImplAttribute;
-global using MethodImplOptions = System.Runtime.CompilerServices.MethodImplOptions;
+global using static b_effort.b_led.Color;
+global using static b_effort.b_led.MethodImplShorthand;
+global using static b_effort.b_led.VectorShorthand;
 using b_effort.b_led;
-
 
 /*
 
@@ -53,9 +53,9 @@ rlImGui.SetupUserFonts = io => {
 	}
 };
 rlImGui.Setup(enableDocking: true);
-ImGui.GetStyle().ScaleAllSizes(22 / 13f);
+ImGui.GetStyle().ScaleAllSizes(1.30f);
 
-var state = new State() {
+var state = new State {
 	Pattern = new TestPattern(),
 	LEDMappers = Array.Empty<LEDMapper>(),
 };
@@ -70,6 +70,7 @@ var funcPlotterWindow = new FuncPlotterWindow {
 		("square", PatternScript.square),
 	},
 };
+var pushWindow = new PushWindow();
 
 #endregion
 
@@ -88,6 +89,7 @@ while (!rl.WindowShouldClose()) {
 	rl.EndDrawing();
 }
 
+Push2.Dispose();
 rlImGui.Shutdown();
 rl.CloseWindow();
 return;
@@ -102,10 +104,7 @@ void DrawUI() {
 	previewWindow.Show();
 	metronomeWindow.Show();
 	funcPlotterWindow.Show();
-	// LEDMap x = new LEDMap() {
-	// 	name = "",
-	// 	leds = Array.Empty<Vector2>(),
-	// };
+	pushWindow.Show();
 }
 
 struct LEDMap {
@@ -122,7 +121,7 @@ sealed class State {
 	public required Pattern Pattern { get; set; }
 	public required LEDMapper[] LEDMappers { get; set; }
 
-	public readonly Color.RGB[,] previewBuffer = new Color.RGB[BufferWidth, BufferWidth];
+	public readonly RGB[,] previewBuffer = new RGB[BufferWidth, BufferWidth];
 
 	public void Update() {
 		this.Pattern.Update();

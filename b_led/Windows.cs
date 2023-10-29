@@ -114,3 +114,34 @@ sealed class FuncPlotterWindow {
 		End();
 	}
 }
+
+sealed class PushWindow {
+	static readonly uint color_connected = hsb(120f / 360, 1, 1).ToU32();
+	static readonly uint color_disconnected = hsb(0, 1, 1).ToU32();
+
+	public void Show() {
+		SetNextWindowSize(em(24, 12), ImGuiCond.FirstUseEver);
+		Begin("push");
+		{
+			float radius = em(0.45f);
+			DrawList.AddCircleFilled(
+				GetCursorScreenPos() + vec2(radius, radius + Style.ItemSpacing.Y),
+				radius,
+				Push2.IsConnected ? color_connected : color_disconnected
+			);
+			Dummy(vec2(radius * 1.6f, radius * 2));
+
+			SameLine();
+			if (!Push2.IsConnected) {
+				if (Button("connect")) {
+					Push2.Connect();
+				}
+			} else {
+				if (Button("disconnect")) {
+					Push2.Disconnect();
+				}
+			}
+		}
+		End();
+	}
+}
