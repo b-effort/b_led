@@ -15,7 +15,9 @@
     <ItemGroup>
         <PackageReference Include="ImGui.NET" Version="1.89.9.3" />
         <PackageReference Include="Raylib-cs" Version="4.5.0.4" />
-        <PackageReference Include="RtMidi.Core" Version="1.0.53" />
+        <PackageReference Include="RtMidi.Core" Version="1.0.53" GeneratePathProperty="true">
+            <ExcludeAssets>build</ExcludeAssets>
+        </PackageReference>
     </ItemGroup>
 
     <ItemGroup>
@@ -27,4 +29,21 @@
         <None Remove="imgui.ini" />
     </ItemGroup>
 
+    <ItemGroup>
+        <None Include="$(PkgRtMidi_Core)\build\librtmidi.dylib">
+            <Link>librtmidi.dylib</Link>
+            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+            <Visible>false</Visible>
+        </None>
+        <None Include="$(PkgRtMidi_Core)\build\rtmidi.dll">
+            <Link>rtmidi.dll</Link>
+            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+            <Visible>false</Visible>
+        </None>
+        <None Include="$(PkgRtMidi_Core)\build\rtmidi32.dll">
+            <Link>rtmidi32.dll</Link>
+            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+            <Visible>false</Visible>
+        </None>
+    </ItemGroup>
 </Project>
