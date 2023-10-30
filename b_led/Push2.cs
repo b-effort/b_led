@@ -68,9 +68,24 @@ static class Push2 {
 		output = null;
 	}
 
-	public static void UpdateLEDs() {
+	public static void Update() {
 		if (!IsConnected)
 			return;
+
+		ProcessInputs();
+
+		SetButtonLED(Button.Metronome, Metronome.BeatPhase < 0.1f ? 1 : 0);
+		if (WasPressed(Button.TapTempo)) {
+			Metronome.Tap();
+		}
+		if (WasPressed(Button.Metronome)) {
+			Metronome.ApplyTapTempo();
+			Metronome.SetDownbeat();
+		}
+
+		if (EncoderChanged(Encoder.Tempo, out var state)) {
+			Metronome.tempo += state.DeltaSteps;
+		}
 
 		UpdatePadLEDs();
 		UpdateButtonLEDs();
@@ -87,8 +102,11 @@ static class Push2 {
 	static readonly Queue<ControlChangeMessage> bufferedControlChanges = new(8);
 
 
-	public static void UpdateInputs() {
+	static void ProcessInputs() {
 		foreach (var state in buttonsInputs.Values) {
+			state.Tick();
+		}
+		foreach (var state in encodersInputs.Values) {
 			state.Tick();
 		}
 
@@ -101,17 +119,20 @@ static class Push2 {
 		while (bufferedControlChanges.TryDequeue(out var msg)) {
 			var button = (Button)msg.Control;
 			if (Enum.IsDefined(button)) {
-				GetButton(button).Update(msg.Value > 0);
+				buttonsInputs[button].Update(msg.Value);
+				return;
+			}
+			var encoder = (Encoder)msg.Control;
+			if (Enum.IsDefined(encoder)) {
+				encodersInputs[encoder].Update(msg.Value);
 			}
 		}
 	}
-
 
 	static void OnNoteOn(IMidiInputDevice sender, in NoteOnMessage msg) {
 		if (msg.Channel == MidiChannel)
 			bufferedNoteChanges.Enqueue(msg);
 	}
-
 
 	static void OnNoteOff(IMidiInputDevice sender, in NoteOffMessage msg) {
 		if (msg.Channel == MidiChannel)
@@ -266,7 +287,8 @@ static class Push2 {
 		// ReSharper disable once MemberHidesStaticFromOuterClass
 		public bool WasPressed { get; private set; }
 
-		public void Update(bool value) {
+		public void Update(Velocity velocity) {
+			bool value = velocity > 0;
 			this.WasPressed = value && !this.IsPressed;
 			this.IsPressed = value;
 		}
@@ -274,18 +296,14 @@ static class Push2 {
 		public void Tick() => this.WasPressed = false;
 	}
 
-	static readonly Dictionary<Button, ButtonState> buttonsInputs = new();
+	static readonly Dictionary<Button, ButtonState> buttonsInputs
+		= Enum.GetValues<Button>().ToDictionary(key => key, _ => new ButtonState());
 	static readonly Dictionary<Button, Velocity> buttonsOutputs = new();
 	static readonly Dictionary<Button, Velocity> buttonsLastOutputs = new();
 
-	public static ButtonState GetButton(Button button) {
-		if (buttonsInputs.TryGetValue(button, out var state)) {
-			return state;
-		}
-		return buttonsInputs[button] = new ButtonState();
-	}
+	public static IReadOnlyDictionary<Button, ButtonState> Buttons => buttonsInputs;
 
-	public static bool WasPressed(Button button) => GetButton(button).WasPressed;
+	public static bool WasPressed(Button button) => buttonsInputs[button].WasPressed;
 
 	public static void SetButtonLED(Button button, float brightness) {
 		buttonsOutputs[button] = Velocity.From01(brightness);
@@ -311,16 +329,48 @@ static class Push2 {
 		Tempo = 14,
 		Swing = 15,
 
-		Track_1 = 71,
-		Track_2 = 72,
-		Track_3 = 73,
-		Track_4 = 74,
-		Track_5 = 75,
-		Track_6 = 76,
-		Track_7 = 77,
-		Track_8 = 78,
+		Device_1 = 71,
+		Device_2 = 72,
+		Device_3 = 73,
+		Device_4 = 74,
+		Device_5 = 75,
+		Device_6 = 76,
+		Device_7 = 77,
+		Device_8 = 78,
 
 		Master = 79,
+	}
+
+	public sealed class EncoderState {
+		public const float IncrementPerStep = 210 / 360f;
+
+		public float Value { get; private set; }
+		public int DeltaSteps { get; private set; }
+		public bool WasChanged => this.DeltaSteps != 0;
+
+		public void Update(Velocity delta) {
+			// https://github.com/Ableton/push-interface/blob/master/doc/AbletonPush2MIDIDisplayInterface.asc#29-encoders
+			this.DeltaSteps = delta < 64 ? delta : -128 + delta;
+			this.Value = BMath.clamp(this.Value + this.DeltaSteps * IncrementPerStep);
+		}
+
+		public void Tick() => this.DeltaSteps = 0;
+	}
+
+	static readonly Dictionary<Encoder, EncoderState> encodersInputs
+		= Enum.GetValues<Encoder>().ToDictionary(key => key, _ => new EncoderState());
+
+	public static IReadOnlyDictionary<Encoder, EncoderState> Encoders => encodersInputs;
+
+	public static bool EncoderChanged(Encoder encoder, [MaybeNullWhen(false)] out EncoderState state) {
+		var _state = encodersInputs[encoder];
+		if (_state.WasChanged) {
+			state = _state;
+			return true;
+		} else {
+			state = null;
+			return false;
+		}
 	}
 
 #endregion
