@@ -71,6 +71,7 @@ var funcPlotterWindow = new FuncPlotterWindow {
 	},
 };
 var pushWindow = new PushWindow();
+Push2.Connect();
 
 #endregion
 
@@ -95,8 +96,10 @@ rl.CloseWindow();
 return;
 
 void Update() {
+	Push2.UpdateInputs();
 	Metronome.Tick();
 	state.Update();
+	Push2.UpdateLEDs();
 }
 
 void DrawUI() {
@@ -133,6 +136,15 @@ sealed class State {
 			for (var x = 0; x < BufferWidth; x++) {
 				outputs[y, x] = patternPixels[y, x].ToRGB();
 			}
+		}
+
+		Push2.SetButtonLED(Push2.Button.Metronome, Metronome.BeatPhase < 0.1f ? 1 : 0);
+		if (Push2.WasPressed(Push2.Button.TapTempo)) {
+			Metronome.Tap();
+		}
+		if (Push2.WasPressed(Push2.Button.Metronome)) {
+			Metronome.ApplyTapTempo();
+			Metronome.SetDownbeat();
 		}
 	}
 }

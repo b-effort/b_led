@@ -11,7 +11,8 @@ static class Push2 {
 	const string MidiDeviceName = "Ableton Push 2";
 	const Channel MidiChannel = Channel.Channel1;
 	const int PaletteSize = 128;
-	static readonly byte[] SysExPrefaceBytes = { 0x00, 0x21, 0x1D, 0x01, 0x01 };
+
+	static MidiDeviceManager DeviceManager => MidiDeviceManager.Default;
 
 	static IMidiInputDevice? input;
 	static IMidiOutputDevice? output;
@@ -20,13 +21,22 @@ static class Push2 {
 	public static bool IsConnected => input?.IsOpen == true && output?.IsOpen == true;
 
 	public static void Connect() {
-		input ??= MidiDeviceManager.Default.InputDevices.First(d => d.Name.TrimEnd() == MidiDeviceName)
-			.CreateDevice();
-		output ??= MidiDeviceManager.Default.OutputDevices.First(d => d.Name.TrimEnd() == MidiDeviceName)
-			.CreateDevice();
+		input ??= DeviceManager.InputDevices.FirstOrDefault(d => d.Name.TrimEnd() == MidiDeviceName)
+			?.CreateDevice();
+		output ??= DeviceManager.OutputDevices.FirstOrDefault(d => d.Name.TrimEnd() == MidiDeviceName)
+			?.CreateDevice();
+
+		if (input is null || output is null) {
+			Console.WriteLine("Push 2 not found");
+			return;
+		}
 
 		input.Open();
 		output.Open();
+
+		input.NoteOn += OnNoteOn;
+		input.NoteOff += OnNoteOff;
+		input.ControlChange += OnControlChange;
 
 		SetMidiMode(MidiMode.Dual);
 
@@ -39,37 +49,129 @@ static class Push2 {
 	}
 
 	public static void Disconnect() {
-		input?.Close();
+		if (input != null) {
+			input.NoteOn -= OnNoteOn;
+			input.NoteOff -= OnNoteOff;
+			input.ControlChange -= OnControlChange;
+
+			input.Close();
+		}
+
 		output?.Close();
 	}
 
 	public static void Dispose() {
+		Disconnect();
 		input?.Dispose();
 		input = null;
 		output?.Dispose();
 		output = null;
 	}
 
-	// ! y starts from the top. it gets inverted to start from the bottom like the push does
+	public static void UpdateLEDs() {
+		if (!IsConnected)
+			return;
+
+		UpdatePadLEDs();
+		UpdateButtonLEDs();
+	}
+
+#region inputs
+
+	readonly record struct NoteMessage(int note, Velocity velocity) {
+		public static implicit operator NoteMessage(NoteOnMessage msg) => new((int)msg.Key, msg.Velocity);
+		public static implicit operator NoteMessage(NoteOffMessage msg) => new((int)msg.Key, msg.Velocity);
+	}
+
+	static readonly Queue<NoteMessage> bufferedNoteChanges = new(8);
+	static readonly Queue<ControlChangeMessage> bufferedControlChanges = new(8);
+
+
+	public static void UpdateInputs() {
+		foreach (var state in buttonsInputs.Values) {
+			state.Tick();
+		}
+
+		while (bufferedNoteChanges.TryDequeue(out var msg)) {
+			if (IsNotePad(msg.note)) {
+				padsInputs[msg.note] = msg.velocity;
+			}
+		}
+
+		while (bufferedControlChanges.TryDequeue(out var msg)) {
+			var button = (Button)msg.Control;
+			if (Enum.IsDefined(button)) {
+				GetButton(button).Update(msg.Value > 0);
+			}
+		}
+	}
+
+
+	static void OnNoteOn(IMidiInputDevice sender, in NoteOnMessage msg) {
+		if (msg.Channel == MidiChannel)
+			bufferedNoteChanges.Enqueue(msg);
+	}
+
+
+	static void OnNoteOff(IMidiInputDevice sender, in NoteOffMessage msg) {
+		if (msg.Channel == MidiChannel)
+			bufferedNoteChanges.Enqueue(msg);
+	}
+
+	static void OnControlChange(IMidiInputDevice sender, in ControlChangeMessage msg) {
+		if (msg.Channel == MidiChannel)
+			bufferedControlChanges.Enqueue(msg);
+	}
+
+#endregion
+
+#region pads
+
+	// ! y starts from the top
 	public readonly record struct Pad(int x, int y) {
 		readonly int x = x % 8;
 		readonly int y = y % 8;
 
-		public Key GetKey() => (Key)(36 + this.x + (7 - this.y) * 8);
+		public int Index => this.x + (7 - this.y) * 8;
 	}
 
-	public static void SendPad(Pad pad, int brightness) {
-		if (!IsConnected)
-			return;
+	const int NumPads = 64;
+	const int PadsFirstNote = 36;
+	const int PadsLastNote = PadsFirstNote + NumPads - 1;
+	static readonly Velocity[] padsInputs = new Velocity[NumPads];
+	static readonly Velocity[] padsOutputs = new Velocity[NumPads];
+	static readonly Velocity[] padsLastOutputs = new Velocity[NumPads];
 
-		if (brightness > 0) {
-			output.Send(new NoteOnMessage(MidiChannel, pad.GetKey(), brightness));
-		} else {
-			output.Send(new NoteOffMessage(MidiChannel, pad.GetKey(), brightness));
+	static bool IsNotePad(int note) => note is >= PadsFirstNote and <= PadsLastNote;
+
+	// TODO: treat as hue
+	public static void SetPadLED(Pad pad, float brightness) {
+		padsOutputs[pad.Index] = Velocity.From01(brightness);
+	}
+
+	static void UpdatePadLEDs() {
+		var outputs = padsOutputs;
+		var outputsLast = padsLastOutputs;
+		for (var i = 0; i < outputs.Length; i++) {
+			int velocity = outputs[i];
+			if (velocity == outputsLast[i])
+				continue;
+
+			var key = (Key)(PadsFirstNote + i);
+			if (velocity > 0) {
+				output!.Send(new NoteOnMessage(MidiChannel, key, velocity));
+			} else {
+				output!.Send(new NoteOffMessage(MidiChannel, key, velocity));
+			}
+			outputsLast[i] = velocity;
 		}
 	}
 
-	public enum Control {
+#endregion
+
+#region buttons
+
+	public enum Button {
 		// left side
 		TapTempo = 3,
 		Metronome = 9,
@@ -159,7 +261,51 @@ static class Push2 {
 		Time_32t = 43,
 	}
 
-	public static void SendCC() { }
+	public sealed class ButtonState {
+		public bool IsPressed { get; private set; }
+		// ReSharper disable once MemberHidesStaticFromOuterClass
+		public bool WasPressed { get; private set; }
+
+		public void Update(bool value) {
+			this.WasPressed = value && !this.IsPressed;
+			this.IsPressed = value;
+		}
+
+		public void Tick() => this.WasPressed = false;
+	}
+
+	static readonly Dictionary<Button, ButtonState> buttonsInputs = new();
+	static readonly Dictionary<Button, Velocity> buttonsOutputs = new();
+	static readonly Dictionary<Button, Velocity> buttonsLastOutputs = new();
+
+	public static ButtonState GetButton(Button button) {
+		if (buttonsInputs.TryGetValue(button, out var state)) {
+			return state;
+		}
+		return buttonsInputs[button] = new ButtonState();
+	}
+
+	public static bool WasPressed(Button button) => GetButton(button).WasPressed;
+
+	public static void SetButtonLED(Button button, float brightness) {
+		buttonsOutputs[button] = Velocity.From01(brightness);
+	}
+
+	static void UpdateButtonLEDs() {
+		var outputs = buttonsOutputs;
+		var outputsLast = buttonsLastOutputs;
+		foreach ((Button button, int velocity) in outputs) {
+			if (velocity == outputsLast.GetValueOrDefault(button))
+				continue;
+
+			output!.Send(new ControlChangeMessage(MidiChannel, (int)button, velocity));
+			outputsLast[button] = velocity;
+		}
+	}
+
+#endregion
+
+#region encoders
 
 	public enum Encoder {
 		Tempo = 14,
@@ -177,7 +323,11 @@ static class Push2 {
 		Master = 79,
 	}
 
+#endregion
+
 #region sysex
+
+	static readonly byte[] SysExPrefaceBytes = { 0x00, 0x21, 0x1D, 0x01, 0x01 };
 
 	enum MidiMode {
 		Live = 0,
@@ -218,4 +368,20 @@ static class Push2 {
 	}
 
 #endregion
+}
+
+readonly record struct Velocity {
+	public readonly int value;
+
+	public Velocity(int value) {
+		if (value is < 0 or > 127)
+			throw new ArgumentOutOfRangeException(nameof(value));
+
+		this.value = value;
+	}
+
+	public static Velocity From01(float value) => new((int)MathF.Round(value * sbyte.MaxValue));
+
+	public static implicit operator Velocity(int value) => new(value);
+	public static implicit operator int(Velocity @this) => @this.value;
 }
