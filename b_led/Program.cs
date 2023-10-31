@@ -117,7 +117,7 @@ struct LEDMap {
 delegate LEDMap LEDMapper(int numPixels);
 
 sealed class State {
-	public const int BufferWidth = 256;
+	public const int BufferWidth = 128;
 	public const int NumPixels = 128;
 
 	public required Pattern Pattern { get; set; }

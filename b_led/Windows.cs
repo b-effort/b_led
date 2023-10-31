@@ -1,4 +1,5 @@
 using static ImGuiNET.ImGui;
+using static b_effort.b_led.Widgets;
 using static b_effort.b_led.ImGuiShorthand;
 
 namespace b_effort.b_led;
@@ -129,7 +130,7 @@ sealed class PushWindow {
 				radius,
 				Push2.IsConnected ? color_connected : color_disconnected
 			);
-			Dummy(vec2(radius * 1.6f, radius * 2));
+			Dummy(vec2(radius * 1.8f, radius * 2));
 
 			SameLine();
 			if (!Push2.IsConnected) {
@@ -140,6 +141,17 @@ sealed class PushWindow {
 				if (Button("disconnect")) {
 					Push2.Disconnect();
 				}
+			}
+
+			AlignTextToFramePadding();
+			var encTempo = Push2.Encoders[Push2.Encoder.Tempo].Value;
+			if (Knob("enc/tempo", ref encTempo)) {
+				Console.WriteLine($"enc/swing: {encTempo}");
+			}
+			SameLine();
+			var encSwing = Push2.Encoders[Push2.Encoder.Swing].Value;
+			if (Knob("enc/swing", ref encSwing)) {
+				Console.WriteLine($"enc/swing: {encSwing}");
 			}
 		}
 		End();

@@ -72,7 +72,7 @@ static class Push2 {
 		if (!IsConnected)
 			return;
 
-		ProcessInputs();
+		ConsumeBufferedInputs();
 
 		SetButtonLED(Button.Metronome, Metronome.BeatPhase < 0.1f ? 1 : 0);
 		if (WasPressed(Button.TapTempo)) {
@@ -93,16 +93,15 @@ static class Push2 {
 
 #region inputs
 
-	readonly record struct NoteMessage(int note, Velocity velocity) {
-		public static implicit operator NoteMessage(NoteOnMessage msg) => new((int)msg.Key, msg.Velocity);
-		public static implicit operator NoteMessage(NoteOffMessage msg) => new((int)msg.Key, msg.Velocity);
+	readonly record struct NoteMessage(Key note, Velocity velocity) {
+		public static implicit operator NoteMessage(NoteOnMessage msg) => new(msg.Key, msg.Velocity);
+		public static implicit operator NoteMessage(NoteOffMessage msg) => new(msg.Key, msg.Velocity);
 	}
 
 	static readonly Queue<NoteMessage> bufferedNoteChanges = new(8);
 	static readonly Queue<ControlChangeMessage> bufferedControlChanges = new(8);
 
-
-	static void ProcessInputs() {
+	static void ConsumeBufferedInputs() {
 		foreach (var state in buttonsInputs.Values) {
 			state.Tick();
 		}
@@ -111,8 +110,8 @@ static class Push2 {
 		}
 
 		while (bufferedNoteChanges.TryDequeue(out var msg)) {
-			if (IsNotePad(msg.note)) {
-				padsInputs[msg.note] = msg.velocity;
+			if (Pad.TryGetNoteIndex(msg.note, out int i)) {
+				padsInputs[i] = msg.velocity;
 			}
 		}
 
@@ -150,20 +149,35 @@ static class Push2 {
 
 	// ! y starts from the top
 	public readonly record struct Pad(int x, int y) {
+		public const int NumPads = 64;
+		const int FirstNote = 36;
+		const int LastNote = FirstNote + NumPads - 1;
+
 		readonly int x = x % 8;
 		readonly int y = y % 8;
 
 		public int Index => this.x + (7 - this.y) * 8;
+
+		public static Key GetKey(int i) => (Key)FirstNote + i;
+
+		public static bool TryGetNoteIndex(Key note, out int padIndex) {
+			if ((int)note is >= FirstNote and <= LastNote) {
+				padIndex = (int)(note - FirstNote);
+				return true;
+			} else {
+				padIndex = -1;
+				return false;
+			}
+		}
 	}
 
-	const int NumPads = 64;
-	const int PadsFirstNote = 36;
-	const int PadsLastNote = PadsFirstNote + NumPads - 1;
-	static readonly Velocity[] padsInputs = new Velocity[NumPads];
-	static readonly Velocity[] padsOutputs = new Velocity[NumPads];
-	static readonly Velocity[] padsLastOutputs = new Velocity[NumPads];
+	static readonly Velocity[] padsInputs = new Velocity[Pad.NumPads];
+	static readonly Velocity[] padsOutputs = new Velocity[Pad.NumPads];
+	static readonly Velocity[] padsLastOutputs = new Velocity[Pad.NumPads];
 
-	static bool IsNotePad(int note) => note is >= PadsFirstNote and <= PadsLastNote;
+	public static bool WasPressed(Pad pad) {
+		return false;
+	}
 
 	// TODO: treat as hue
 	public static void SetPadLED(Pad pad, float brightness) {
@@ -178,7 +192,7 @@ static class Push2 {
 			if (velocity == outputsLast[i])
 				continue;
 
-			var key = (Key)(PadsFirstNote + i);
+			var key = Pad.GetKey(i);
 			if (velocity > 0) {
 				output!.Send(new NoteOnMessage(MidiChannel, key, velocity));
 			} else {
@@ -342,7 +356,7 @@ static class Push2 {
 	}
 
 	public sealed class EncoderState {
-		public const float IncrementPerStep = 210 / 360f;
+		public const float IncrementPerStep = 1 / 210f;
 
 		public float Value { get; private set; }
 		public int DeltaSteps { get; private set; }
