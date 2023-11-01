@@ -11,13 +11,14 @@ static partial class ImGuiInternal {
 
 	[LibraryImport(LibName, EntryPoint = "igDragBehavior", StringMarshalling = Utf8),
 	 UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-	[return: MarshalAs(UnmanagedType.I1)]
+	[return: MarshalAs(UnmanagedType.U1)]
 	public static unsafe partial bool DragBehavior(
 		uint id,
 		ImGuiDataType data_type,
-		ref float v,
-		float v_min,
-		float v_max,
+		nint v,
+		float speed,
+		nint v_min,
+		nint v_max,
 		string format,
 		ImGuiSliderFlags flags
 	);

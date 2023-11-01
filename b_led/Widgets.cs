@@ -17,19 +17,19 @@ static class Widgets {
 
 	[Flags] public enum KnobFlags {
 		None = 0,
-		NoTitle = 1 << 0,
-		NoInput = 1 << 1,
-		Tooltip = 1 << 2,
-		DragHorizontal = 1 << 3,
-		ReadOnly = 1 << 4,
+		ReadOnly = 1 << 0,
+		NoTitle = 1 << 1,
+		NoInput = 1 << 2,
+		NoTooltip = 1 << 3,
+		DragHorizontal = 1 << 4,
 	};
 
-	public static bool Knob(
+	public static unsafe bool Knob(
 		string label,
 		ref float value,
 		float min = 0f,
 		float max = 1f,
-		float speed = 0.1f,
+		float speed = 0.01f,
 		string format = "%.1f",
 		KnobVariant variant = KnobVariant.Stepped,
 		int ticks = 10,
@@ -49,8 +49,6 @@ static class Widgets {
 		var angle = angleMin + (angleMax - angleMin) * value01;
 
 		Vector2 screenPos;
-		bool isHovered = IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled);
-		bool isActive = IsItemActive();
 
 		bool valueChanged = false;
 
@@ -59,34 +57,51 @@ static class Widgets {
 		BeginGroup();
 		{
 			uint id = GetID(label);
-			Vector2 titleSize = CalcTextSize(label, false, width);
-			var posX = GetCursorPosX();
-			SetCursorPosX(posX + (width - titleSize.X) / 2f);
-			Text(label);
 
-			screenPos = GetCursorScreenPos();
+			if ((flags & KnobFlags.NoTitle) == 0) {
+				PushFont(ImFonts.Mono_15);
+				var titleSize = CalcTextSize(label, false, width);
+				var posX = GetCursorPosX() + (width - titleSize.X) / 2f;
+				SetCursorPosX(posX);
+				PushTextWrapPos(posX + titleSize.X);
 
-			InvisibleButton(label, vec2(width));
+				Text(label);
 
-			if ((flags & KnobFlags.ReadOnly) == 0) {
-				valueChanged = DragBehavior(id, dataType, ref value, min, max, format, ImGuiSliderFlags_Vertical);
+				PopTextWrapPos();
+				PopFont();
 			}
 
-			if ((flags & KnobFlags.Tooltip) != 0 && (isHovered || isActive)) {
-				SetTooltip(value.ToString("p1"));
+			screenPos = GetCursorScreenPos();
+			InvisibleButton(label, vec2(width));
+
+			ImGuiSliderFlags dragFlags = ImGuiSliderFlags.None;
+			if ((flags & KnobFlags.DragHorizontal) == 0) {
+				dragFlags |= ImGuiSliderFlags_Vertical;
+			}
+			if ((flags & KnobFlags.ReadOnly) == 0) {
+				valueChanged = DragBehavior(
+					id, dataType,
+					(nint)Unsafe.AsPointer(ref value),
+					speed,
+					(nint)Unsafe.AsPointer(ref min), (nint)Unsafe.AsPointer(ref max),
+					format, dragFlags
+				);
+			}
+
+			if ((flags & KnobFlags.NoTooltip) == 0
+			 && (IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled) || IsItemActive())) {
+				SetTooltip($"{value:00%}% - {label}");
 			}
 
 			if ((flags & KnobFlags.NoInput) == 0) {
-				unsafe {
-					if (DragScalar(
-						    "###knob_drag", dataType,
-						    (nint)Unsafe.AsPointer(ref value), speed,
-						    (nint)Unsafe.AsPointer(ref min), (nint)Unsafe.AsPointer(ref max),
-						    format,
-						    ImGuiSliderFlags_Vertical
-					    )) {
-						valueChanged = true;
-					}
+				if (DragScalar(
+					    "###knob_drag", dataType,
+					    (nint)Unsafe.AsPointer(ref value),
+					    speed,
+					    (nint)Unsafe.AsPointer(ref min), (nint)Unsafe.AsPointer(ref max),
+					    format, dragFlags
+				    )) {
+					valueChanged = true;
 				}
 			}
 		}

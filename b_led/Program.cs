@@ -15,6 +15,7 @@ using b_effort.b_led;
 /*
 
 # Runway
+- ! global/pattern params
 - pattern banks
 - palettes
 
@@ -29,39 +30,29 @@ buffers are [y, x] = [y * width + x]
 
 const int FPS = 144;
 const int Width = 1280;
-const int Height = 720;
+const int Height = 960;
 
-#region setup
+#region init
 
 rl.SetConfigFlags(ConfigFlags.FLAG_WINDOW_RESIZABLE);
 rl.InitWindow(Width, Height, "b_led");
 rl.SetTargetFPS(FPS);
 
-rlImGui.SetupUserFonts = io => {
-	io.Fonts.Clear();
-	ImFontConfig fontCfg = new ImFontConfig {
-		OversampleH = 3,
-		OversampleV = 3,
-		PixelSnapH = 1,
-		RasterizerMultiply = 1,
-		GlyphMaxAdvanceX = float.MaxValue,
-		FontDataOwnedByAtlas = 1,
-	};
-	unsafe { //
-		const int sizePixels = 17 * 96 / 72;
-		io.Fonts.AddFontFromFileTTF("assets/JetBrainsMono-Regular.ttf", sizePixels, &fontCfg);
-	}
-};
+rlImGui.SetupUserFonts = ImFonts.SetupUserFonts;
 rlImGui.Setup(enableDocking: true);
 ImGui.GetStyle().ScaleAllSizes(1.30f);
 
-var state = new State {
-	Pattern = new TestPattern(),
-	LEDMappers = Array.Empty<LEDMapper>(),
-};
+#endregion
 
-using var previewWindow = new PreviewWindow(state);
+#region app setup
+
+State.Pattern = new TestPattern();
+
+using var previewWindow = new PreviewWindow();
 var metronomeWindow = new MetronomeWindow();
+var macrosWindow = new MacrosWindow();
+var pushWindow = new PushWindow();
+
 var funcPlotterWindow = new FuncPlotterWindow {
 	Funcs = new() {
 		("saw", PatternScript.saw),
@@ -70,7 +61,6 @@ var funcPlotterWindow = new FuncPlotterWindow {
 		("square", PatternScript.square),
 	},
 };
-var pushWindow = new PushWindow();
 Push2.Connect();
 
 #endregion
@@ -85,7 +75,7 @@ while (!rl.WindowShouldClose()) {
 		rlImGui.Begin(Metronome.TDelta);
 		DrawUI();
 		rlImGui.End();
-		rl.DrawFPS(Width - 88, 8);
+		rl.DrawFPS(Width - 84, 4);
 	}
 	rl.EndDrawing();
 }
@@ -98,15 +88,48 @@ return;
 void Update() {
 	Push2.Update();
 	Metronome.Tick();
-	state.Update();
+	State.Update();
 }
 
 void DrawUI() {
 	ImGui.DockSpaceOverViewport();
 	previewWindow.Show();
 	metronomeWindow.Show();
-	funcPlotterWindow.Show();
+	macrosWindow.Show();
+	// funcPlotterWindow.Show();
 	pushWindow.Show();
+}
+
+static class ImFonts {
+	const string JetBrainsMono_Regular_TTF = "assets/JetBrainsMono-Regular.ttf";
+
+	public static ImFontPtr Default { get; private set; }
+
+	public static ImFontPtr Mono_15 { get; private set; }
+	public static ImFontPtr Mono_17 { get; private set; }
+
+	public static unsafe void SetupUserFonts(ImGuiIOPtr io) {
+		io.Fonts.Clear();
+
+		ImFontConfig fontCfg = new ImFontConfig {
+			OversampleH = 3,
+			OversampleV = 3,
+			PixelSnapH = 1,
+			RasterizerMultiply = 1,
+			GlyphMaxAdvanceX = float.MaxValue,
+			FontDataOwnedByAtlas = 1,
+		};
+
+		Mono_17 = io.LoadTTF(JetBrainsMono_Regular_TTF, 17, &fontCfg);
+		Mono_15 = io.LoadTTF(JetBrainsMono_Regular_TTF, 15, &fontCfg);
+
+		Default = Mono_17;
+	}
+
+	static ImFontPtr LoadTTF(this ImGuiIOPtr io, string file, int px, ImFontConfigPtr config)
+		=> io.Fonts.AddFontFromFileTTF(file, px_to_pt(px), config);
+
+	static int px_to_pt(int px) => px * 96 / 72;
 }
 
 struct LEDMap {
@@ -116,20 +139,20 @@ struct LEDMap {
 
 delegate LEDMap LEDMapper(int numPixels);
 
-sealed class State {
+static class State {
 	public const int BufferWidth = 128;
 	public const int NumPixels = 128;
 
-	public required Pattern Pattern { get; set; }
-	public required LEDMapper[] LEDMappers { get; set; }
+	public static Pattern Pattern { get; set; } = null!;
+	public static LEDMapper[] LEDMappers { get; set; } = Array.Empty<LEDMapper>();
 
-	public readonly RGB[,] previewBuffer = new RGB[BufferWidth, BufferWidth];
+	public static readonly RGB[,] previewBuffer = new RGB[BufferWidth, BufferWidth];
 
-	public void Update() {
-		this.Pattern.Update();
+	public static void Update() {
+		Pattern.Update();
 
-		var outputs = this.previewBuffer;
-		var patternPixels = this.Pattern.pixels;
+		var outputs = previewBuffer;
+		var patternPixels = Pattern.pixels;
 
 		for (var y = 0; y < BufferWidth; y++) {
 			for (var x = 0; x < BufferWidth; x++) {

@@ -87,6 +87,33 @@ static class Push2 {
 			Metronome.tempo += state.DeltaSteps;
 		}
 
+		if (EncoderChanged(Encoder.Device_1, out state)) {
+			var macro = Macro.scaleX;
+			macro.Value += state.Delta * macro.Range;
+		}
+		if (EncoderChanged(Encoder.Device_2, out state)) {
+			var macro = Macro.scaleY;
+			macro.Value += state.Delta * macro.Range;
+		}
+
+		var pattern = State.Pattern;
+		if (EncoderChanged(Encoder.Device_5, out state)) {
+			var macro = pattern.m1;
+			macro.Value += state.Delta * macro.Range;
+		}
+		if (EncoderChanged(Encoder.Device_6, out state)) {
+			var macro = pattern.m2;
+			macro.Value += state.Delta * macro.Range;
+		}
+		if (EncoderChanged(Encoder.Device_7, out state)) {
+			var macro = pattern.m3;
+			macro.Value += state.Delta * macro.Range;
+		}
+		if (EncoderChanged(Encoder.Device_8, out state)) {
+			var macro = pattern.m4;
+			macro.Value += state.Delta * macro.Range;
+		}
+
 		UpdatePadLEDs();
 		UpdateButtonLEDs();
 	}
@@ -359,13 +386,15 @@ static class Push2 {
 		public const float IncrementPerStep = 1 / 210f;
 
 		public float Value { get; private set; }
+		public float Delta { get; private set; }
 		public int DeltaSteps { get; private set; }
 		public bool WasChanged => this.DeltaSteps != 0;
 
 		public void Update(Velocity delta) {
 			// https://github.com/Ableton/push-interface/blob/master/doc/AbletonPush2MIDIDisplayInterface.asc#29-encoders
 			this.DeltaSteps = delta < 64 ? delta : -128 + delta;
-			this.Value = BMath.clamp(this.Value + this.DeltaSteps * IncrementPerStep);
+			this.Delta = this.DeltaSteps * IncrementPerStep;
+			this.Value = BMath.clamp(this.Value + this.Delta);
 		}
 
 		public void Tick() => this.DeltaSteps = 0;

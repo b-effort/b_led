@@ -57,19 +57,57 @@ static class PatternScript {
 	}
 }
 
-abstract class Pattern {
-	const int BufferWidth = State.BufferWidth;
+#region macros
 
+public sealed class Macro {
+	float value;
+	public float Value {
+		[Impl(Inline)] get => this.value;
+		set => this.value = clamp(value, this.Min, this.Max);
+	}
+
+	public required string Name { get; init; }
+	public float Min { get; init; } = 0f;
+	public float Max { get; init; } = 1f;
+	public float Range => this.Max - this.Min;
+
+	public static implicit operator float(Macro @this) => @this.value;
+
+	public static readonly Macro scaleX = new() { Name = "scale x", Value = 0.5f, Min = 0.1f, Max = 10f };
+	public static readonly Macro scaleY = new() { Name = "scale y", Value = 0.5f, Min = 0.1f, Max = 10f };
+
+	static Macro[]? global;
+	public static ICollection<Macro> Global => global
+		??= new[] { scaleX, scaleY };
+}
+
+#endregion
+
+abstract class Pattern {
+	public Macro m1 = new() { Name = "macro 1" };
+	public Macro m2 = new() { Name = "macro 2" };
+	public Macro m3 = new() { Name = "macro 3" };
+	public Macro m4 = new() { Name = "macro 4" };
+
+	Macro[]? macros;
+	public ICollection<Macro> Macros => this.macros
+		??= new[] { this.m1, this.m2, this.m3, this.m4 };
+
+	const int BufferWidth = State.BufferWidth;
 	public readonly HSB[,] pixels = new HSB[BufferWidth, BufferWidth];
 
 	public void Update() {
 		this.PreRender();
+
+		var scaleX = Macro.scaleX.Value;
+		var scaleY = Macro.scaleY.Value;
+
 		for (var y = 0; y < BufferWidth; y++) {
 			for (var x = 0; x < BufferWidth; x++) {
 				int i = y * BufferWidth + x;
 				const float lengthMinusOne = BufferWidth - 1f;
-				float x01 = x / lengthMinusOne;
-				float y01 = y / lengthMinusOne;
+				float x01 = x / lengthMinusOne * scaleX;
+				float y01 = y / lengthMinusOne * scaleY;
 
 				this.pixels[y, x] = this.Render(i, x01, y01);
 			}
@@ -81,6 +119,10 @@ abstract class Pattern {
 }
 
 sealed class TestPattern : Pattern {
+	public TestPattern() {
+		this.m1 = new Macro { Name = "threshold", Value = 0.1f };
+	}
+
 	protected override HSB Render(int i, float x, float y) {
 		x -= 0.5f;
 		y -= 0.5f;
@@ -88,8 +130,8 @@ sealed class TestPattern : Pattern {
 		y *= 5 + beat.saw(40 * 2) * 50;
 
 		var h = (sin(x) + cos(t * 0.15f))
-		  / (sin(y + sin(x * t / 5f) * 0.5f) + sin(t * 0.5f)) + beat.saw(4);
-		var t3 = beat.saw(4) * 0.5f + 0.1f;
+		  / (sin(y + sin(x * 5f) * this.m2) + sin(t * 0.5f)) + beat.saw(4);
+		var t3 = beat.saw(4) * 0.5f + this.m1;
 		var b = abs(h) < t3 ? 1 : 0;
 
 		h = h + 0.25f + beat.saw(2);

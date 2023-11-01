@@ -10,10 +10,7 @@ sealed class PreviewWindow : IDisposable {
 	readonly Image image;
 	readonly Texture2D texture;
 
-	readonly State state;
-
-	public PreviewWindow(State state) {
-		this.state = state;
+	public PreviewWindow() {
 		this.image = rl.GenImageColor(Resolution, Resolution, rlColor.BLACK);
 		this.texture = rl.LoadTextureFromImage(this.image);
 	}
@@ -28,7 +25,7 @@ sealed class PreviewWindow : IDisposable {
 
 	public unsafe void Show() {
 		var pixels = (rlColor*)this.image.data;
-		var buffer = this.state.previewBuffer;
+		var buffer = State.previewBuffer;
 		for (var y = 0; y < Resolution; y++) {
 			for (var x = 0; x < Resolution; x++) {
 				pixels[y * Resolution + x] = buffer[y, x];
@@ -86,33 +83,41 @@ sealed class MetronomeWindow {
 	}
 }
 
-sealed class FuncPlotterWindow {
-	const int Resolution = State.BufferWidth;
-
-	public List<(string name, Func<float, float> f)> Funcs { get; init; } = new();
-
-	readonly float[] points = new float[Resolution];
-
-	bool animate;
+sealed class MacrosWindow {
+	Pattern Pattern => State.Pattern;
 
 	public void Show() {
 		SetNextWindowSize(em(24, 12), ImGuiCond.FirstUseEver);
-		Begin("f(x) plotter");
+		Begin("macros");
 		{
-			Checkbox("animate", ref this.animate);
+			if (BeginTable("macros_table", 2, ImGuiTableFlags.BordersInnerH)) {
+				TableSetupColumn("global");
+				TableSetupColumn("pattern");
+				TableHeadersRow();
+				TableNextRow();
 
-			var points = this.points;
-			foreach (var (name, f) in this.Funcs) {
-				for (var i = 0; i < Resolution; i++) {
-					var x = (float)i / Resolution;
-					if (this.animate)
-						x += PatternScript.t;
-					points[i] = f(x);
+				TableSetColumnIndex(0);
+				foreach (var macro in Macro.Global) {
+					MacroKnob(macro);
+					SameLine();
 				}
-				PlotLines(name, ref points[0], points.Length);
+
+				TableSetColumnIndex(1);
+				foreach (var macro in this.Pattern.Macros) {
+					MacroKnob(macro);
+					SameLine();
+				}
 			}
+			EndTable();
 		}
 		End();
+	}
+
+	static void MacroKnob(Macro macro) {
+		var value = macro.Value;
+		if (Knob(macro.Name, ref value, macro.Min, macro.Max, width: em(4), flags: KnobFlags.NoInput)) {
+			macro.Value = value;
+		}
 	}
 }
 
@@ -145,13 +150,37 @@ sealed class PushWindow {
 
 			AlignTextToFramePadding();
 			var encTempo = Push2.Encoders[Push2.Encoder.Tempo].Value;
-			if (Knob("enc/tempo", ref encTempo)) {
-				Console.WriteLine($"enc/swing: {encTempo}");
-			}
+			if (Knob("enc/tempo", ref encTempo)) { }
 			SameLine();
 			var encSwing = Push2.Encoders[Push2.Encoder.Swing].Value;
-			if (Knob("enc/swing", ref encSwing)) {
-				Console.WriteLine($"enc/swing: {encSwing}");
+			if (Knob("enc/swing", ref encSwing)) { }
+		}
+		End();
+	}
+}
+
+sealed class FuncPlotterWindow {
+	const int Resolution = State.BufferWidth;
+	public List<(string name, Func<float, float> f)> Funcs { get; init; } = new();
+	readonly float[] points = new float[Resolution];
+
+	bool animate;
+
+	public void Show() {
+		SetNextWindowSize(em(24, 12), ImGuiCond.FirstUseEver);
+		Begin("f(x) plotter");
+		{
+			Checkbox("animate", ref this.animate);
+
+			var points = this.points;
+			foreach (var (name, f) in this.Funcs) {
+				for (var i = 0; i < Resolution; i++) {
+					var x = (float)i / Resolution;
+					if (this.animate)
+						x += PatternScript.t;
+					points[i] = f(x);
+				}
+				PlotLines(name, ref points[0], points.Length);
 			}
 		}
 		End();
