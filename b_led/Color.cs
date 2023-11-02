@@ -1,7 +1,14 @@
 namespace b_effort.b_led;
 
 static class Color {
-	public static HSB hsb(float h, float s, float b) => new(h, s, b);
+	// todo: hue can't be exactly 1f with this
+	public static HSB hsb(float h, float s = 1f, float b = 1f) {
+		h %= 1f;
+		if (!float.IsNormal(h)) {
+			h = 0f;
+		}
+		return new HSB(h, s, b);
+	}
 
 	public static byte f32_to_int8(float value) => (byte)(value * 255 + 0.5f);
 
@@ -112,4 +119,58 @@ static class Color {
 			return new HSL(h, s, l);
 		}
 	}
+}
+
+sealed class Gradient {
+	public sealed class Point {
+		public float pos;
+		public HSB color;
+
+		public static implicit operator float(Point @this) => @this.pos;
+	}
+
+	readonly List<Point> points = new(8) {
+		new() { pos = 0f, color = hsb(0.2f) },
+		new() { pos = 0.5f, color = hsb(0.65f) },
+		new() { pos = 1f, color = hsb(0.8f) },
+	};
+	public IReadOnlyCollection<Point> Points => this.points;
+
+	[Impl(Inline)]
+	public HSB MapColor(HSB input) {
+		var pos = input.h;
+		var (p1, p2) = this.GetNeighboringPoints(pos);
+		var dist = (pos - p1) / (p2 - p1);
+
+		var h = BMath.lerp(dist, p1.color.h, p2.color.h);
+		var s = BMath.lerp(dist, p1.color.s, p2.color.s) * input.s;
+		var b = BMath.lerp(dist, p1.color.b, p2.color.b) * input.b;
+
+		return hsb(h, s, b);
+	}
+
+	[Impl(Inline)]
+	(Point p1, Point p2) GetNeighboringPoints(float pos) {
+		var points = this.points;
+		for (var i = 1; i < points.Count; i++) {
+			var p1 = points[i - 1];
+			var p2 = points[i];
+
+			if (pos <= p2) {
+				return (p1, p2);
+			}
+		}
+
+		throw new OopsiePoopsie($"{pos} not in gradient");
+	}
+
+	public Point AddPoint(float pos) {
+		return new() {
+			pos = pos,
+		};
+	}
+}
+
+sealed class Palette {
+	public Gradient Gradient { get; set; } = new();
 }

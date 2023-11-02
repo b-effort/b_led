@@ -11,9 +11,15 @@ static class BMath {
 	public const float PI2 = TAU;
 
 	[Impl(Inline)] public static float abs(float x) => MathF.Abs(x);
+
 	[Impl(Inline)] public static float clamp(float x, float min = 0f, float max = 1f) => Math.Clamp(x, min, max);
-	[Impl(Inline)] public static float sign(float x) => MathF.Sign(x);
+
+	[Impl(Inline)] public static float lerp(float x, float min, float max) => (max - min) * x + min;
+
 	[Impl(Inline)] public static int nearestEven(float x) => ((int)x + 1) & ~1;
+
+	[Impl(Inline)] public static float sign(float x) => MathF.Sign(x);
+
 
 	[Impl(Inline)] public static float sqr(float x) => x * x;
 	[Impl(Inline)] public static float sqrt(float x) => MathF.Sqrt(x);
@@ -75,10 +81,11 @@ public sealed class Macro {
 
 	public static readonly Macro scaleX = new() { Name = "scale x", Value = 0.5f, Min = 0.1f, Max = 10f };
 	public static readonly Macro scaleY = new() { Name = "scale y", Value = 0.5f, Min = 0.1f, Max = 10f };
+	public static readonly Macro hue_offset = new() { Name = "hue", Min = -5f, Max = 5f };
 
 	static Macro[]? global;
-	public static ICollection<Macro> Global => global
-		??= new[] { scaleX, scaleY };
+	public static IReadOnlyCollection<Macro> Global => global
+		??= new[] { scaleX, scaleY, hue_offset };
 }
 
 #endregion
@@ -90,7 +97,7 @@ abstract class Pattern {
 	public Macro m4 = new() { Name = "macro 4" };
 
 	Macro[]? macros;
-	public ICollection<Macro> Macros => this.macros
+	public IReadOnlyCollection<Macro> Macros => this.macros
 		??= new[] { this.m1, this.m2, this.m3, this.m4 };
 
 	const int BufferWidth = State.BufferWidth;

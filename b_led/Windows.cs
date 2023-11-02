@@ -33,10 +33,53 @@ sealed class PreviewWindow : IDisposable {
 		}
 		rl.UpdateTexture(this.texture, pixels);
 
-		SetNextWindowSize(em(24, 24));
+		SetNextWindowSize(em(24, 24), ImGuiCond.FirstUseEver);
 		Begin("preview");
 		{
 			ImGuiUtil.ImageTextureFit(this.texture);
+		}
+		End();
+	}
+}
+
+sealed class PaletteWindow : IDisposable {
+	const int Resolution = 128;
+
+	readonly Image image;
+	readonly Texture2D texture;
+
+	public PaletteWindow() {
+		this.image = rl.GenImageColor(Resolution, 1, rlColor.BLACK);
+		this.texture = rl.LoadTextureFromImage(this.image);
+	}
+
+	~PaletteWindow() => this.Dispose();
+
+	public void Dispose() {
+		rl.UnloadImage(this.image);
+		rl.UnloadTexture(this.texture);
+		GC.SuppressFinalize(this);
+	}
+
+	public unsafe void Show() {
+		var palette = State.Palette;
+
+		if (palette is null) {
+			return;
+		}
+
+		var pixels = (rlColor*)this.image.data;
+		for (var x = 0; x < Resolution; x++) {
+			var color = palette.Gradient.MapColor(hsb((float)x / Resolution));
+			pixels[x] = color.ToRGB();
+		}
+		rl.UpdateTexture(this.texture, pixels);
+
+		SetNextWindowSize(em(24, 12), ImGuiCond.FirstUseEver);
+		Begin("palette");
+		{
+			var area = GetContentRegionAvail();
+			Image((nint)this.texture.id, vec2(area.X, em(2f)));
 		}
 		End();
 	}

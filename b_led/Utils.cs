@@ -1,5 +1,4 @@
 global using ImplAttribute = System.Runtime.CompilerServices.MethodImplAttribute;
-using System.Collections;
 using System.Runtime.CompilerServices;
 
 namespace b_effort.b_led;
@@ -9,7 +8,7 @@ static class MethodImplShorthand {
 }
 
 static class CollectionExtensions {
-	public static int NextOffset(this ICollection @this, int offset) => (offset + 1) % @this.Count;
+	public static int NextOffset<T>(this IReadOnlyCollection<T> @this, int offset) => (offset + 1) % @this.Count;
 }
 
 static class VectorShorthand {
@@ -43,16 +42,20 @@ static class ImGuiUtil {
 		int sizeX = (int)(texture.width * scale);
 		int sizeY = (int)(texture.height * scale);
 
+		// ImGui.SetCursorPosX(0);
 		if (center) {
-			ImGui.SetCursorPosX(0);
 			// ReSharper disable PossibleLossOfFraction
 			ImGui.SetCursorPosX(area.X / 2 - sizeX / 2);
 			ImGui.SetCursorPosY(ImGui.GetCursorPosY() + (area.Y / 2 - sizeY / 2));
 			// ReSharper restore PossibleLossOfFraction
 		}
 
-		rlImGui.ImageSize(texture, sizeX, sizeY);
+		ImGui.Image((nint)texture.id, vec2(sizeX, sizeY));
 	}
+}
+
+sealed class OopsiePoopsie : Exception {
+	public OopsiePoopsie(string message) : base($"you made a fucky wucky: {message}") { }
 }
 
 #region stuff i shouldn't have written yet

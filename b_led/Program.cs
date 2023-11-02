@@ -15,9 +15,8 @@ using b_effort.b_led;
 /*
 
 # Runway
-- ! global/pattern params
+- ! palettes
 - pattern banks
-- palettes
 
 
 # Mapping
@@ -47,8 +46,10 @@ ImGui.GetStyle().ScaleAllSizes(1.30f);
 #region app setup
 
 State.Pattern = new TestPattern();
+State.Palette = new Palette();
 
 using var previewWindow = new PreviewWindow();
+using var paletteWindow = new PaletteWindow();
 var metronomeWindow = new MetronomeWindow();
 var macrosWindow = new MacrosWindow();
 var pushWindow = new PushWindow();
@@ -94,6 +95,7 @@ void Update() {
 void DrawUI() {
 	ImGui.DockSpaceOverViewport();
 	previewWindow.Show();
+	paletteWindow.Show();
 	metronomeWindow.Show();
 	macrosWindow.Show();
 	// funcPlotterWindow.Show();
@@ -132,19 +134,21 @@ static class ImFonts {
 	static int px_to_pt(int px) => px * 96 / 72;
 }
 
-struct LEDMap {
-	public required string name;
-	public required Vector2[] leds;
-}
+// struct LEDMap {
+// 	public required string name;
+// 	public required Vector2[] leds;
+// }
 
-delegate LEDMap LEDMapper(int numPixels);
+// delegate LEDMap LEDMapper(int numPixels);
 
 static class State {
 	public const int BufferWidth = 128;
 	public const int NumPixels = 128;
 
 	public static Pattern Pattern { get; set; } = null!;
-	public static LEDMapper[] LEDMappers { get; set; } = Array.Empty<LEDMapper>();
+	public static Palette? Palette { get; set; } = null;
+
+	// public static LEDMapper[] LEDMappers { get; set; } = Array.Empty<LEDMapper>();
 
 	public static readonly RGB[,] previewBuffer = new RGB[BufferWidth, BufferWidth];
 
@@ -153,10 +157,19 @@ static class State {
 
 		var outputs = previewBuffer;
 		var patternPixels = Pattern.pixels;
+		var hueOffset = Macro.hue_offset.Value;
 
 		for (var y = 0; y < BufferWidth; y++) {
 			for (var x = 0; x < BufferWidth; x++) {
-				outputs[y, x] = patternPixels[y, x].ToRGB();
+				var color = patternPixels[y, x];
+				if (Palette != null) {
+					color = Palette.Gradient.MapColor(
+						color with {
+							h = MathF.Abs(color.h + hueOffset) % 1f,
+						}
+					);
+				}
+				outputs[y, x] = color.ToRGB();
 			}
 		}
 	}

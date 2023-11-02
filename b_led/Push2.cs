@@ -87,35 +87,25 @@ static class Push2 {
 			Metronome.tempo += state.DeltaSteps;
 		}
 
-		if (EncoderChanged(Encoder.Device_1, out state)) {
-			var macro = Macro.scaleX;
-			macro.Value += state.Delta * macro.Range;
-		}
-		if (EncoderChanged(Encoder.Device_2, out state)) {
-			var macro = Macro.scaleY;
-			macro.Value += state.Delta * macro.Range;
-		}
+		MacroEncoder(Encoder.Device_1, Macro.scaleX);
+		MacroEncoder(Encoder.Device_2, Macro.scaleY);
+		MacroEncoder(Encoder.Device_3, Macro.hue_offset);
 
 		var pattern = State.Pattern;
-		if (EncoderChanged(Encoder.Device_5, out state)) {
-			var macro = pattern.m1;
-			macro.Value += state.Delta * macro.Range;
-		}
-		if (EncoderChanged(Encoder.Device_6, out state)) {
-			var macro = pattern.m2;
-			macro.Value += state.Delta * macro.Range;
-		}
-		if (EncoderChanged(Encoder.Device_7, out state)) {
-			var macro = pattern.m3;
-			macro.Value += state.Delta * macro.Range;
-		}
-		if (EncoderChanged(Encoder.Device_8, out state)) {
-			var macro = pattern.m4;
-			macro.Value += state.Delta * macro.Range;
-		}
+		MacroEncoder(Encoder.Device_5, pattern.m1);
+		MacroEncoder(Encoder.Device_6, pattern.m2);
+		MacroEncoder(Encoder.Device_7, pattern.m3);
+		MacroEncoder(Encoder.Device_8, pattern.m4);
 
 		UpdatePadLEDs();
 		UpdateButtonLEDs();
+		return;
+
+		void MacroEncoder(Encoder encoder, Macro macro) {
+			if (EncoderChanged(encoder, out state)) {
+				macro.Value += state.Delta * macro.Range;
+			}
+		}
 	}
 
 #region inputs
