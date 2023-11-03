@@ -27,6 +27,7 @@ static class ImGuiShorthand {
 	[Impl(Inline)] public static Vector2 em(float x, float y) => em(new Vector2(x, y));
 	[Impl(Inline)] public static Vector2 em(Vector2 value) => value * FontSize;
 	[Impl(Inline)] public static int emEven(float value) => BMath.nearestEven(value * FontSize);
+	[Impl(Inline)] public static int emOdd(float value) => BMath.nearestOdd(value * FontSize);
 }
 
 static class ImGuiUtil {

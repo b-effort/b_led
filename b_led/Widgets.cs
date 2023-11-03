@@ -1,4 +1,5 @@
 using System.Runtime.CompilerServices;
+using static b_effort.b_led.ImGuiShorthand;
 using static b_effort.b_led.Interop.ImGuiInternal;
 using static ImGuiNET.ImGui;
 
@@ -207,10 +208,10 @@ static class Widgets {
 	}
 
 	public static bool GradientEdit(string id, Gradient gradient, GradientEditState state) {
-		const int BarHeight = 20;
-		const float MarkerWidth = 10f;
-		const float MarkerHeight = 15f;
-		Vector2 markerSize = vec2(MarkerWidth, MarkerHeight);
+		int barHeight = emEven(1);
+		float markerWidth = emOdd(0.6f);
+		float markerHeight = emEven(1f);
+		Vector2 markerSize = vec2(markerWidth, markerHeight);
 
 		bool changed = false;
 
@@ -219,11 +220,10 @@ static class Widgets {
 
 		PushID(id);
 		{
-			var a = GetCursorScreenPos();
 			float width = GetContentRegionAvail().X;
 
 			{ // # color bar
-				Vector2 barSize = vec2(width, BarHeight);
+				Vector2 barSize = vec2(width, barHeight);
 
 				if (state.isTextureStale) {
 					state.UpdateTexture(gradient);
@@ -242,7 +242,7 @@ static class Widgets {
 					bool isSelected = i == state.selectedIndex;
 					DrawMarker(markersOrigin, x, point.color, isSelected);
 
-					SetCursorScreenPos(markersOrigin + vec2(x - MarkerWidth / 2, 0));
+					SetCursorScreenPos(markersOrigin + vec2(x - markerWidth / 2, 0));
 					InvisibleButton($"##marker_{i}", markerSize);
 					isMarkerHovered |= IsItemHovered();
 
@@ -269,13 +269,13 @@ static class Widgets {
 
 			{ // # markers area
 				SetCursorScreenPos(markersOrigin);
-				InvisibleButton("markers_area", vec2(width, MarkerHeight));
+				InvisibleButton("markers_area", vec2(width, markerHeight));
 
 				if (!isMarkerHovered && IsItemHovered()) {
 					float x = io.MousePos.X - markersOrigin.X;
 					float gradientPos = x / width;
 					HSB color = gradient.ColorAt(gradientPos);
-					DrawMarker(markersOrigin, x, color, false);
+					DrawMarker(markersOrigin, x, color, isSelected: false, showOutline: false);
 
 					if (IsMouseClicked(0)) {
 						gradient.Add(gradientPos, color);
@@ -292,29 +292,40 @@ static class Widgets {
 
 		return changed;
 
-		void DrawMarker(Vector2 origin, float x, HSB color, bool isSelected) {
-			const float Margin = 2f;
+		void DrawMarker(Vector2 origin, float x, HSB color, bool isSelected, bool showOutline = true) {
+			float margin = emEven(0.1f);
+			float halfH = markerHeight / 2;
+			float halfW = markerWidth / 2;
 
-			var min = origin + vec2(x - MarkerWidth / 2, 0);
-			HSB outlineColor = isSelected ? hsb(320 / 360f) : hsb(0, 0, 0.2f);
+			var min = origin + vec2(x - halfW, 0);
 
+			if (showOutline) {
+				HSB outlineColor = isSelected ? hsb(320 / 360f) : hsb(0, 0, 0.2f);
+				uint imOutlineColor = outlineColor.ToU32();
+				drawList.AddTriangleFilled(
+					min + vec2(halfW, 0),
+					min + vec2(0, halfH),
+					min + vec2(markerWidth, halfH),
+					imOutlineColor
+				);
+				drawList.AddRectFilled(
+					min + vec2(0, halfH),
+					min + markerSize,
+					imOutlineColor
+				);
+			}
+
+			uint imColor = color.ToU32();
 			drawList.AddTriangleFilled(
-				min + vec2(MarkerWidth / 2, 0),
-				min + vec2(0, MarkerHeight / 2),
-				min + vec2(MarkerWidth, MarkerHeight / 2),
-				outlineColor.ToU32()
+				min + vec2(halfW, margin * 1.5f),
+				min + vec2(margin, halfH),
+				min + vec2(markerWidth - margin, halfH),
+				imColor
 			);
 			drawList.AddRectFilled(
-				min + vec2(0, MarkerHeight / 2),
-				min + markerSize,
-				outlineColor.ToU32()
-			);
-
-			drawList.AddTriangleFilled(
-				min + vec2(MarkerWidth / 2, -Margin),
-				min + vec2(Margin, MarkerHeight / 2),
-				min + vec2(MarkerWidth - Margin, MarkerHeight / 2),
-				color.ToU32()
+				min + vec2(margin, halfH),
+				min + markerSize - vec2(margin),
+				imColor
 			);
 		}
 	}

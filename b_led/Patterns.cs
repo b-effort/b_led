@@ -17,6 +17,8 @@ static class BMath {
 	[Impl(Inline)] public static float lerp(float x, float min, float max) => (max - min) * x + min;
 
 	[Impl(Inline)] public static int nearestEven(float x) => ((int)x + 1) & ~1;
+	// !todo: maybe wrong?
+	[Impl(Inline)] public static int nearestOdd(float x) => nearestEven(x) - 1;
 
 	[Impl(Inline)] public static float sign(float x) => MathF.Sign(x);
 
