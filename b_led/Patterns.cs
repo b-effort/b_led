@@ -84,7 +84,7 @@ public sealed class Macro {
 	public static readonly Macro hue_offset = new() { Name = "hue", Min = -5f, Max = 5f };
 
 	static Macro[]? global;
-	public static IReadOnlyCollection<Macro> Global => global
+	public static IReadOnlyList<Macro> Global => global
 		??= new[] { scaleX, scaleY, hue_offset };
 }
 
@@ -97,7 +97,7 @@ abstract class Pattern {
 	public Macro m4 = new() { Name = "macro 4" };
 
 	Macro[]? macros;
-	public IReadOnlyCollection<Macro> Macros => this.macros
+	public IReadOnlyList<Macro> Macros => this.macros
 		??= new[] { this.m1, this.m2, this.m3, this.m4 };
 
 	const int BufferWidth = State.BufferWidth;

@@ -54,6 +54,36 @@ static class ImGuiUtil {
 	}
 }
 
+static class RaylibUtil {
+	public static unsafe Texture2D CreateTexture(int width, int height, out rlColor[] pixels) {
+		const PixelFormat pixelFormat = PixelFormat.PIXELFORMAT_UNCOMPRESSED_R8G8B8A8;
+
+		Texture2D texture = new Texture2D {
+			width = width,
+			height = height,
+			format = pixelFormat,
+			mipmaps = 1,
+		};
+
+		pixels = new rlColor[width * height];
+		fixed (void* data = pixels) {
+			texture.id = Rlgl.rlLoadTexture(data, width, height, pixelFormat, 1);
+		}
+
+		return texture;
+	}
+}
+
+readonly struct DisposableTexture2D : IDisposable {
+	public readonly Texture2D texture;
+
+	public DisposableTexture2D(Texture2D texture) => this.texture = texture;
+
+	public void Dispose() => rl.UnloadTexture(this.texture);
+
+	public static implicit operator Texture2D(DisposableTexture2D @this) => @this.texture;
+}
+
 sealed class OopsiePoopsie : Exception {
 	public OopsiePoopsie(string message) : base($"you made a fucky wucky: {message}") { }
 }

@@ -42,44 +42,23 @@ sealed class PreviewWindow : IDisposable {
 	}
 }
 
-sealed class PaletteWindow : IDisposable {
-	const int Resolution = 128;
+sealed class PalettesWindow : IDisposable {
+	readonly GradientEditState editState = new();
 
-	readonly Image image;
-	readonly Texture2D texture;
-
-	public PaletteWindow() {
-		this.image = rl.GenImageColor(Resolution, 1, rlColor.BLACK);
-		this.texture = rl.LoadTextureFromImage(this.image);
-	}
-
-	~PaletteWindow() => this.Dispose();
+	~PalettesWindow() => this.Dispose();
 
 	public void Dispose() {
-		rl.UnloadImage(this.image);
-		rl.UnloadTexture(this.texture);
+		this.editState.Dispose();
 		GC.SuppressFinalize(this);
 	}
 
-	public unsafe void Show() {
-		var palette = State.Palette;
-
-		if (palette is null) {
-			return;
-		}
-
-		var pixels = (rlColor*)this.image.data;
-		for (var x = 0; x < Resolution; x++) {
-			var color = palette.Gradient.MapColor(hsb((float)x / Resolution));
-			pixels[x] = color.ToRGB();
-		}
-		rl.UpdateTexture(this.texture, pixels);
-
+	public void Show() {
 		SetNextWindowSize(em(24, 12), ImGuiCond.FirstUseEver);
 		Begin("palette");
 		{
-			var area = GetContentRegionAvail();
-			Image((nint)this.texture.id, vec2(area.X, em(2f)));
+			var palette = State.Palette;
+			if (palette != null)
+				GradientEdit("selected_palette", palette.Gradient, this.editState);
 		}
 		End();
 	}
@@ -127,7 +106,7 @@ sealed class MetronomeWindow {
 }
 
 sealed class MacrosWindow {
-	Pattern Pattern => State.Pattern;
+	static Pattern? Pattern => State.Pattern;
 
 	public void Show() {
 		SetNextWindowSize(em(24, 12), ImGuiCond.FirstUseEver);
@@ -146,9 +125,11 @@ sealed class MacrosWindow {
 				}
 
 				TableSetColumnIndex(1);
-				foreach (var macro in this.Pattern.Macros) {
-					MacroKnob(macro);
-					SameLine();
+				if (Pattern != null) {
+					foreach (var macro in Pattern.Macros) {
+						MacroKnob(macro);
+						SameLine();
+					}
 				}
 			}
 			EndTable();
@@ -165,8 +146,8 @@ sealed class MacrosWindow {
 }
 
 sealed class PushWindow {
-	static readonly uint color_connected = hsb(120f / 360, 1, 1).ToU32();
-	static readonly uint color_disconnected = hsb(0, 1, 1).ToU32();
+	static readonly uint color_connected = hsb(120f / 360).ToU32();
+	static readonly uint color_disconnected = hsb(0).ToU32();
 
 	public void Show() {
 		SetNextWindowSize(em(24, 12), ImGuiCond.FirstUseEver);

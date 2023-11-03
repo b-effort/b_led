@@ -92,10 +92,12 @@ static class Push2 {
 		MacroEncoder(Encoder.Device_3, Macro.hue_offset);
 
 		var pattern = State.Pattern;
-		MacroEncoder(Encoder.Device_5, pattern.m1);
-		MacroEncoder(Encoder.Device_6, pattern.m2);
-		MacroEncoder(Encoder.Device_7, pattern.m3);
-		MacroEncoder(Encoder.Device_8, pattern.m4);
+		if (pattern != null) {
+			MacroEncoder(Encoder.Device_5, pattern.m1);
+			MacroEncoder(Encoder.Device_6, pattern.m2);
+			MacroEncoder(Encoder.Device_7, pattern.m3);
+			MacroEncoder(Encoder.Device_8, pattern.m4);
+		}
 
 		UpdatePadLEDs();
 		UpdateButtonLEDs();

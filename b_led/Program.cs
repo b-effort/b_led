@@ -49,7 +49,7 @@ State.Pattern = new TestPattern();
 State.Palette = new Palette();
 
 using var previewWindow = new PreviewWindow();
-using var paletteWindow = new PaletteWindow();
+using var palettesWindow = new PalettesWindow();
 var metronomeWindow = new MetronomeWindow();
 var macrosWindow = new MacrosWindow();
 var pushWindow = new PushWindow();
@@ -95,7 +95,7 @@ void Update() {
 void DrawUI() {
 	ImGui.DockSpaceOverViewport();
 	previewWindow.Show();
-	paletteWindow.Show();
+	palettesWindow.Show();
 	metronomeWindow.Show();
 	macrosWindow.Show();
 	// funcPlotterWindow.Show();
@@ -145,7 +145,7 @@ static class State {
 	public const int BufferWidth = 128;
 	public const int NumPixels = 128;
 
-	public static Pattern Pattern { get; set; } = null!;
+	public static Pattern? Pattern { get; set; } = null;
 	public static Palette? Palette { get; set; } = null;
 
 	// public static LEDMapper[] LEDMappers { get; set; } = Array.Empty<LEDMapper>();
@@ -153,6 +153,9 @@ static class State {
 	public static readonly RGB[,] previewBuffer = new RGB[BufferWidth, BufferWidth];
 
 	public static void Update() {
+		if (Pattern is null)
+			return;
+
 		Pattern.Update();
 
 		var outputs = previewBuffer;

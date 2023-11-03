@@ -122,31 +122,41 @@ static class Color {
 }
 
 sealed class Gradient {
-	public sealed class Point {
-		public float pos;
-		public HSB color;
+	public sealed record Point(float pos, HSB color) : IComparable<Point> {
+		public float pos = pos;
+		public HSB color = color;
+
+		public int CompareTo(Point? other) => other is null ? 1 : this.pos.CompareTo(other.pos);
 
 		public static implicit operator float(Point @this) => @this.pos;
 	}
 
 	readonly List<Point> points = new(8) {
-		new() { pos = 0f, color = hsb(0.2f) },
-		new() { pos = 0.5f, color = hsb(0.65f) },
-		new() { pos = 1f, color = hsb(0.8f) },
+		new(0f, hsb(0.2f)),
+		new(0.5f, hsb(0.65f)),
+		new(1f, hsb(0.8f)),
 	};
-	public IReadOnlyCollection<Point> Points => this.points;
+	public IReadOnlyList<Point> Points => this.points;
 
 	[Impl(Inline)]
-	public HSB MapColor(HSB input) {
-		var pos = input.h;
+	public HSB ColorAt(float pos) {
 		var (p1, p2) = this.GetNeighboringPoints(pos);
 		var dist = (pos - p1) / (p2 - p1);
 
-		var h = BMath.lerp(dist, p1.color.h, p2.color.h);
-		var s = BMath.lerp(dist, p1.color.s, p2.color.s) * input.s;
-		var b = BMath.lerp(dist, p1.color.b, p2.color.b) * input.b;
+		return hsb(
+			h: BMath.lerp(dist, p1.color.h, p2.color.h),
+			s: BMath.lerp(dist, p1.color.s, p2.color.s),
+			b: BMath.lerp(dist, p1.color.b, p2.color.b)
+		);
+	}
 
-		return hsb(h, s, b);
+	[Impl(Inline)]
+	public HSB MapColor(HSB input) {
+		var color = this.ColorAt(input.h);
+		return color with {
+			s = color.s * input.s,
+			b = color.b * input.b,
+		};
 	}
 
 	[Impl(Inline)]
@@ -164,10 +174,14 @@ sealed class Gradient {
 		throw new OopsiePoopsie($"{pos} not in gradient");
 	}
 
-	public Point AddPoint(float pos) {
-		return new() {
-			pos = pos,
-		};
+	public bool Add(float pos, HSB color) {
+		this.points.Add(new Point(pos, color));
+		this.Sort();
+		return true;
+	}
+
+	public void Sort() {
+		this.points.Sort();
 	}
 }
 
