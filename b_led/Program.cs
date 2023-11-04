@@ -1,5 +1,6 @@
 ﻿global using System;
 global using System.Collections.Generic;
+global using System.Linq;
 global using System.Numerics;
 global using Color = b_effort.b_led.Color;
 global using Raylib_cs;
@@ -40,6 +41,12 @@ rl.SetTargetFPS(FPS);
 rlImGui.SetupUserFonts = ImFonts.SetupUserFonts;
 rlImGui.Setup(enableDocking: true);
 ImGui.GetStyle().ScaleAllSizes(1.30f);
+
+ImGui.SetColorEditOptions(
+	ImGuiColorEditFlags.NoAlpha
+  | ImGuiColorEditFlags.Float
+  | ImGuiColorEditFlags.InputHSV | ImGuiColorEditFlags.DisplayHSV
+);
 
 #endregion
 

@@ -83,6 +83,10 @@ static class Color {
 
 		[Impl(Inline)] public uint ToU32() => this.ToRGB().ToU32();
 
+		public static implicit operator HSB(Vector3 vec) => new(vec.X, vec.Y, vec.Z);
+		public static implicit operator Vector3(HSB @this) => new(@this.h, @this.s, @this.b);
+		
+		public static implicit operator HSB(Vector4 vec) => new(vec.X, vec.Y, vec.Z);
 		public static implicit operator Vector4(HSB @this) => new(@this.h, @this.s, @this.b, 1f);
 	}
 

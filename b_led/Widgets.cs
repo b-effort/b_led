@@ -177,13 +177,13 @@ static class Widgets {
 	public sealed class GradientEditState : IDisposable {
 		const int Resolution = 128;
 
-		public int? selectedIndex = null;
-		public int? draggingIndex = null;
+		public int selectedIndex = -1;
+		public bool isDragging = false;
+		public Vector4 revertColor = new();
 
 		public readonly Texture2D texture;
-		readonly rlColor[] pixels;
 		public bool isTextureStale = true;
-
+		readonly rlColor[] pixels;
 
 		public GradientEditState() {
 			this.texture = RaylibUtil.CreateTexture(Resolution, 1, out this.pixels);
@@ -194,6 +194,19 @@ static class Widgets {
 		public void Dispose() {
 			rl.UnloadTexture(this.texture);
 			GC.SuppressFinalize(this);
+		}
+
+		public void SelectPoint(Gradient gradient, int i) {
+			var points = gradient.Points;
+			int len = points.Count;
+
+			if (i < 0)
+				i += len;
+			else if (i >= len)
+				i %= len;
+
+			this.selectedIndex = i;
+			this.revertColor = points[i].color;
 		}
 
 		public void UpdateTexture(Gradient gradient) {
@@ -218,44 +231,60 @@ static class Widgets {
 		var io = GetIO();
 		var drawList = GetWindowDrawList();
 
+		if (state.selectedIndex < 0) {
+			state.SelectPoint(gradient, 0);
+		}
+		if (state.isTextureStale) {
+			state.UpdateTexture(gradient);
+		}
+
 		PushID(id);
 		{
-			float width = GetContentRegionAvail().X;
+			float marginX = emEven(0.2f);
+			float width = GetContentRegionAvail().X - marginX * 2;
+			Vector2 origin = GetCursorScreenPos() + vec2(marginX, 0);
 
 			{ // # color bar
 				Vector2 barSize = vec2(width, barHeight);
 
-				if (state.isTextureStale) {
-					state.UpdateTexture(gradient);
-				}
+				SetCursorScreenPos(origin);
 				Image((nint)state.texture.id, barSize);
 			}
 
-			Vector2 markersOrigin = GetCursorScreenPos();
+
 			bool isMarkerHovered = false;
 			{ // # markers
+				origin.Y = GetCursorScreenPos().Y;
+				bool isMouseLeftDown = IsMouseDown(0);
+				bool isMouseDragging = IsMouseDragging(0);
 
 				var points = gradient.Points;
 				for (var i = 0; i < points.Count; i++) {
 					var point = points[i];
 					float x = point.pos * width;
 					bool isSelected = i == state.selectedIndex;
-					DrawMarker(markersOrigin, x, point.color, isSelected);
 
-					SetCursorScreenPos(markersOrigin + vec2(x - markerWidth / 2, 0));
+					DrawMarker(origin, x, point.color, isSelected);
+
+					SetCursorScreenPos(origin + vec2(x - markerWidth / 2, 0));
 					InvisibleButton($"##marker_{i}", markerSize);
+
 					isMarkerHovered |= IsItemHovered();
 
-					bool isLeftMouseDown = IsMouseDown(0);
-					if (state.draggingIndex is null && isMarkerHovered && isLeftMouseDown) {
-						state.selectedIndex = state.draggingIndex = i;
+					if (!state.isDragging && isMarkerHovered && isMouseLeftDown) {
+						state.SelectPoint(gradient, i);
+						state.isDragging = true;
 					}
 
-					if (!isLeftMouseDown) {
-						state.draggingIndex = null;
+					if (!isMouseLeftDown) {
+						state.isDragging = false;
 					}
 
-					if (i != 0 && i < points.Count - 1 && i == state.draggingIndex && IsMouseDragging(0)) {
+					if (
+						i == state.selectedIndex
+					 && i != 0 && i < points.Count - 1 // no dragging endpoints
+					 && state.isDragging && isMouseDragging
+					) {
 						float deltaPos = io.MouseDelta.X / width;
 						point.pos = BMath.clamp(point.pos + deltaPos);
 						changed |= deltaPos != 0;
@@ -268,19 +297,61 @@ static class Widgets {
 			}
 
 			{ // # markers area
-				SetCursorScreenPos(markersOrigin);
+				SetCursorScreenPos(origin);
 				InvisibleButton("markers_area", vec2(width, markerHeight));
 
 				if (!isMarkerHovered && IsItemHovered()) {
-					float x = io.MousePos.X - markersOrigin.X;
+					float x = io.MousePos.X - origin.X;
 					float gradientPos = x / width;
 					HSB color = gradient.ColorAt(gradientPos);
-					DrawMarker(markersOrigin, x, color, isSelected: false, showOutline: false);
+					DrawMarker(origin, x, color, isSelected: false, showOutline: false);
 
 					if (IsMouseClicked(0)) {
 						gradient.Add(gradientPos, color);
 						changed = true;
 					}
+				}
+			}
+
+			SpacingY(em(0.25f));
+
+			var selectedPoint = gradient.Points[state.selectedIndex];
+			Vector4 selectedColorVec = selectedPoint.color;
+
+			{ // # controls
+				if (ArrowButton("##prev", ImGuiDir.Left)) {
+					state.SelectPoint(gradient, state.selectedIndex - 1);
+				}
+				SameLine();
+				if (ArrowButton("##next", ImGuiDir.Right)) {
+					state.SelectPoint(gradient, state.selectedIndex + 1);
+				}
+
+				const ImGuiColorEditFlags colorButtonFlags = ImGuiColorEditFlags.NoAlpha
+				                                           | ImGuiColorEditFlags.InputHSV;
+				SameLine();
+				ColorButton("##edit_current", selectedColorVec, colorButtonFlags);
+				
+				SameLine();
+				uint revertButtonColor = ((HSB)state.revertColor).ToU32();
+				PushStyleColor(ImGuiCol.Button, revertButtonColor);
+				PushStyleColor(ImGuiCol.ButtonHovered, revertButtonColor);
+				PushStyleColor(ImGuiCol.ButtonActive, revertButtonColor);
+				if (Button("revert##edit_revert")) {
+					selectedColorVec = selectedPoint.color = state.revertColor;
+				}
+				PopStyleColor(3);
+			}
+
+			SpacingY(em(0.25f));
+
+			{ // # edit color picker
+
+				if (ColorPicker4(
+					    "##edit_picker", ref selectedColorVec, ImGuiColorEditFlags.DisplayHSV, ref state.revertColor.X
+				    )) {
+					selectedPoint.color = selectedColorVec;
+					changed = true;
 				}
 			}
 		}
@@ -293,7 +364,7 @@ static class Widgets {
 		return changed;
 
 		void DrawMarker(Vector2 origin, float x, HSB color, bool isSelected, bool showOutline = true) {
-			float margin = emEven(0.1f);
+			float marginOutline = emEven(0.1f);
 			float halfH = markerHeight / 2;
 			float halfW = markerWidth / 2;
 
@@ -317,14 +388,14 @@ static class Widgets {
 
 			uint imColor = color.ToU32();
 			drawList.AddTriangleFilled(
-				min + vec2(halfW, margin * 1.5f),
-				min + vec2(margin, halfH),
-				min + vec2(markerWidth - margin, halfH),
+				min + vec2(halfW, marginOutline * 1.5f),
+				min + vec2(marginOutline, halfH),
+				min + vec2(markerWidth - marginOutline, halfH),
 				imColor
 			);
 			drawList.AddRectFilled(
-				min + vec2(margin, halfH),
-				min + markerSize - vec2(margin),
+				min + vec2(marginOutline, halfH),
+				min + markerSize - vec2(marginOutline),
 				imColor
 			);
 		}

@@ -28,6 +28,8 @@ static class ImGuiShorthand {
 	[Impl(Inline)] public static Vector2 em(Vector2 value) => value * FontSize;
 	[Impl(Inline)] public static int emEven(float value) => BMath.nearestEven(value * FontSize);
 	[Impl(Inline)] public static int emOdd(float value) => BMath.nearestOdd(value * FontSize);
+
+	public static void SpacingY(float height) => ImGui.Dummy(vec2(0, height));
 }
 
 static class ImGuiUtil {
@@ -73,16 +75,6 @@ static class RaylibUtil {
 
 		return texture;
 	}
-}
-
-readonly struct DisposableTexture2D : IDisposable {
-	public readonly Texture2D texture;
-
-	public DisposableTexture2D(Texture2D texture) => this.texture = texture;
-
-	public void Dispose() => rl.UnloadTexture(this.texture);
-
-	public static implicit operator Texture2D(DisposableTexture2D @this) => @this.texture;
 }
 
 sealed class OopsiePoopsie : Exception {
