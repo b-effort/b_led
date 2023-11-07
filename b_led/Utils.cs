@@ -21,8 +21,6 @@ static class ImGuiShorthand {
 	public static ImGuiStylePtr Style => style ??= ImGui.GetStyle();
 	public static float FontSize => ImGui.GetFontSize();
 
-	public static ImDrawListPtr DrawList => ImGui.GetWindowDrawList();
-
 	[Impl(Inline)] public static float em(float value) => value * FontSize;
 	[Impl(Inline)] public static Vector2 em(float x, float y) => em(new Vector2(x, y));
 	[Impl(Inline)] public static Vector2 em(Vector2 value) => value * FontSize;

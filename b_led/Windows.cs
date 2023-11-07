@@ -153,8 +153,9 @@ sealed class PushWindow {
 		SetNextWindowSize(em(24, 12), ImGuiCond.FirstUseEver);
 		Begin("push");
 		{
+			var drawList = GetWindowDrawList();
 			float radius = em(0.45f);
-			DrawList.AddCircleFilled(
+			drawList.AddCircleFilled(
 				GetCursorScreenPos() + vec2(radius, radius + Style.ItemSpacing.Y),
 				radius,
 				Push2.IsConnected ? color_connected : color_disconnected

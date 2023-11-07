@@ -175,11 +175,11 @@ static class Widgets {
 #region gradient
 
 	public sealed class GradientEditState : IDisposable {
-		const int Resolution = 128;
+		const int Resolution = 32;
 
 		public int selectedIndex = -1;
 		public bool isDragging = false;
-		public Vector4 revertColor = new();
+		public HSB revertColor = new();
 
 		public readonly Texture2D texture;
 		public bool isTextureStale = true;
@@ -222,6 +222,7 @@ static class Widgets {
 
 	public static bool GradientEdit(string id, Gradient gradient, GradientEditState state) {
 		int barHeight = emEven(1);
+		float marginX = emEven(0.2f);
 		float markerWidth = emOdd(0.6f);
 		float markerHeight = emEven(1f);
 		Vector2 markerSize = vec2(markerWidth, markerHeight);
@@ -239,8 +240,8 @@ static class Widgets {
 		}
 
 		PushID(id);
+		BeginGroup();
 		{
-			float marginX = emEven(0.2f);
 			float width = GetContentRegionAvail().X - marginX * 2;
 			Vector2 origin = GetCursorScreenPos() + vec2(marginX, 0);
 
@@ -316,7 +317,6 @@ static class Widgets {
 			SpacingY(em(0.25f));
 
 			var selectedPoint = gradient.Points[state.selectedIndex];
-			Vector4 selectedColorVec = selectedPoint.color;
 
 			{ // # controls
 				if (ArrowButton("##prev", ImGuiDir.Left)) {
@@ -330,31 +330,30 @@ static class Widgets {
 				const ImGuiColorEditFlags colorButtonFlags = ImGuiColorEditFlags.NoAlpha
 				                                           | ImGuiColorEditFlags.InputHSV;
 				SameLine();
-				ColorButton("##edit_current", selectedColorVec, colorButtonFlags);
-				
+				ColorButton("##edit_current", selectedPoint.color, colorButtonFlags);
+
 				SameLine();
-				uint revertButtonColor = ((HSB)state.revertColor).ToU32();
+				RGB revertRgb = state.revertColor.ToRGB();
+				uint revertButtonColor = revertRgb.ToU32();
 				PushStyleColor(ImGuiCol.Button, revertButtonColor);
 				PushStyleColor(ImGuiCol.ButtonHovered, revertButtonColor);
 				PushStyleColor(ImGuiCol.ButtonActive, revertButtonColor);
+				PushStyleColor(ImGuiCol.Text, revertRgb.ContrastColor().ToU32());
 				if (Button("revert##edit_revert")) {
-					selectedColorVec = selectedPoint.color = state.revertColor;
+					selectedPoint.color = state.revertColor;
 				}
-				PopStyleColor(3);
+				PopStyleColor(4);
 			}
 
 			SpacingY(em(0.25f));
 
 			{ // # edit color picker
-
-				if (ColorPicker4(
-					    "##edit_picker", ref selectedColorVec, ImGuiColorEditFlags.DisplayHSV, ref state.revertColor.X
-				    )) {
-					selectedPoint.color = selectedColorVec;
+				if (ColorPickerHSB("##hsb_picker", ref selectedPoint.color)) {
 					changed = true;
 				}
 			}
 		}
+		EndGroup();
 		PopID();
 
 		if (changed) {
@@ -399,6 +398,146 @@ static class Widgets {
 				imColor
 			);
 		}
+	}
+
+	static readonly uint[] RainbowHues = {
+		new RGB(255, 000, 000).ToU32(),
+		new RGB(255, 255, 000).ToU32(),
+		new RGB(000, 255, 000).ToU32(),
+		new RGB(000, 255, 255).ToU32(),
+		new RGB(000, 000, 255).ToU32(),
+		new RGB(255, 000, 255).ToU32(),
+		new RGB(255, 000, 000).ToU32(),
+	};
+
+	public static bool ColorPickerHSB(string id, ref HSB color) {
+		bool changed = false;
+
+		var io = GetIO();
+		var drawList = GetWindowDrawList();
+		var style = GetStyle();
+
+		PushID(id);
+		BeginGroup();
+		{
+			float dragWidth = em(4);
+			float barMarginX = em(0.2f);
+			Vector2 barSize = vec2(GetContentRegionAvail().X - dragWidth - style.ItemSpacing.X - barMarginX, emEven(1.25f));
+			
+			float arrowsHalfSizeVal = MathF.Floor(barSize.Y * 0.2f);
+			Vector2 arrowHalfSize = vec2(arrowsHalfSizeVal, arrowsHalfSizeVal + 1);
+			
+			Vector2 barOrigin;
+
+			{ // # hue
+				DragComponent("h", ref color.h);
+
+				SameLine();
+				barOrigin = GetCursorScreenPos();
+				
+				InvisibleButton("##hue", barSize);
+				if (IsItemActive()) {
+					color.h = BMath.clamp((io.MousePos.X - barOrigin.X) / barSize.X);
+					changed = true;
+				}
+
+				for (var i = 0; i < 6; i++) {
+					float partWidth = barSize.X / 6;
+					uint col1 = RainbowHues[i];
+					uint col2 = RainbowHues[i + 1];
+					drawList.AddRectFilledMultiColor(
+						p_min: barOrigin + vec2(i * partWidth, 0),
+						p_max: barOrigin + vec2((i + 1) * partWidth, barSize.Y),
+						col_upr_left: col1, col_bot_left: col1,
+						col_upr_right: col2, col_bot_right: col2
+					);
+				}
+
+				RenderFrameBorder(barOrigin, barOrigin + barSize, 0);
+				DrawArrows(barOrigin + vec2(color.h * barSize.X, 0));
+			}
+
+			{ // # saturation
+				DragComponent("s", ref color.s);
+
+				SameLine();
+				barOrigin = GetCursorScreenPos();
+				var barMax = barOrigin + barSize;
+				
+				InvisibleButton("##saturation", barSize);
+				if (IsItemActive()) {
+					color.s = BMath.clamp((io.MousePos.X - barOrigin.X) / barSize.X);
+					changed = true;
+				}
+
+				uint col1 = (color with { s = 0, b = 1 }).ToU32(); 
+				uint col2 = (color with { s = 1, b = 1 }).ToU32(); 
+				drawList.AddRectFilledMultiColor(
+					p_min: barOrigin, p_max: barMax,
+					col_upr_left: col1, col_bot_left: col1,
+					col_upr_right: col2, col_bot_right: col2
+				);
+				
+				RenderFrameBorder(barOrigin, barMax, 0);
+				DrawArrows(barOrigin + vec2(color.s * barSize.X, 0));
+			}
+			
+			{ // # brightness
+				DragComponent("b", ref color.b);
+
+				SameLine();
+				barOrigin = GetCursorScreenPos();
+				var barMax = barOrigin + barSize;
+				
+				InvisibleButton("##brightness", barSize);
+				if (IsItemActive()) {
+					color.b = BMath.clamp((io.MousePos.X - barOrigin.X) / barSize.X);
+					changed = true;
+				}
+
+				uint col1 = (color with { b = 0 }).ToU32(); 
+				uint col2 = (color with { b = 1 }).ToU32();
+				drawList.AddRectFilledMultiColor(
+					p_min: barOrigin, p_max: barMax,
+					col_upr_left: col1, col_bot_left: col1,
+					col_upr_right: col2, col_bot_right: col2
+				);
+				
+				RenderFrameBorder(barOrigin, barMax, 0);
+				DrawArrows(barOrigin + vec2(color.b * barSize.X, 0));
+			}
+
+			void DrawArrows(Vector2 arrowPos) => RenderArrowsForHorizontalBar(drawList, arrowPos, arrowHalfSize, barSize.Y, style.Alpha);
+			
+			void DragComponent(string name, ref float value) {
+				PushItemWidth(dragWidth);
+				DragFloat($"##{name}_drag", ref value, 0.01f, 0, 1, $"{name}: %.3f", ImGuiSliderFlags.AlwaysClamp);
+				PopItemWidth();
+			}
+		}
+		EndGroup();
+		PopID();
+
+		return changed;
+	}
+
+	static void RenderArrowsForHorizontalBar(
+		ImDrawListPtr drawList,
+		Vector2 pos,
+		Vector2 halfSize,
+		float barHeight,
+		float alpha
+	) {
+		byte alpha8 = f32_to_int8(alpha);
+		uint colorArrow = new RGB(255, 255, 255, alpha8).ToU32();
+		uint colorOutline = new RGB(0, 0, 0, alpha8).ToU32();
+		var halfSizeOutline = halfSize + vec2(1, 2);
+		
+		RenderArrowPointingAt(drawList, pos + vec2(0, halfSize.Y), halfSizeOutline, ImGuiDir.Down, colorOutline);
+		RenderArrowPointingAt(drawList, pos + vec2(0, halfSize.Y - 1), halfSize, ImGuiDir.Down, colorArrow);
+		
+		RenderArrowPointingAt(drawList, pos + vec2(0, barHeight - halfSize.Y), halfSizeOutline, ImGuiDir.Up, colorOutline);
+		RenderArrowPointingAt(drawList, pos + vec2(0, barHeight - halfSize.Y + 1), halfSize, ImGuiDir.Up, colorArrow);
 	}
 
 #endregion

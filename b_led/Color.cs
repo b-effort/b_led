@@ -10,9 +10,12 @@ static class Color {
 		return new HSB(h, s, b);
 	}
 
-	public static byte f32_to_int8(float value) => (byte)(value * 255 + 0.5f);
-
+	// ! This is sRGB
 	public readonly record struct RGB(byte r, byte g, byte b, byte a = 255) {
+		public RGB ContrastColor() => PerceivedLightness(this) < 0.5f
+				? new RGB(255, 255, 255)
+				: new RGB(0, 0, 0);
+
 		[Impl(Inline)] public uint ToU32() {
 			return (uint)(
 				(this.r << 0)
@@ -22,11 +25,14 @@ static class Color {
 			);
 		}
 
-
 		public static implicit operator rlColor(RGB @this) => new(@this.r, @this.g, @this.b, @this.a);
 	}
 
-	public readonly record struct HSB(float h, float s, float b) {
+	public record struct HSB(float h, float s, float b) {
+		public float h = h;
+		public float s = s;
+		public float b = b;
+
 		[Impl(Inline)] public RGB ToRGB(float a = 1) {
 			if (this.s == 0) {
 				var value = f32_to_int8(this.b);
@@ -85,7 +91,7 @@ static class Color {
 
 		public static implicit operator HSB(Vector3 vec) => new(vec.X, vec.Y, vec.Z);
 		public static implicit operator Vector3(HSB @this) => new(@this.h, @this.s, @this.b);
-		
+
 		public static implicit operator HSB(Vector4 vec) => new(vec.X, vec.Y, vec.Z);
 		public static implicit operator Vector4(HSB @this) => new(@this.h, @this.s, @this.b, 1f);
 	}
@@ -123,6 +129,34 @@ static class Color {
 			return new HSL(h, s, l);
 		}
 	}
+
+	public static byte f32_to_int8(float value) => (byte)(value * 255 + 0.5f);
+	public static float int8_to_f32(byte value) => value / 255f;
+
+	// https://stackoverflow.com/questions/596216/formula-to-determine-perceived-brightness-of-rgb-color/56678483#56678483
+	static float sRGB_to_lin(byte value) {
+		float v = int8_to_f32(value);
+
+		return v <= 0.04045
+			? v / 12.92f
+			: BMath.pow((v + 0.055f) / 1.055f, 2.4f);
+	}
+
+	// Y in CIEXYZ
+	static float RelativeLuminance(RGB color)
+		=> 0.2126f * sRGB_to_lin(color.r)
+		 + 0.7152f * sRGB_to_lin(color.g)
+		 + 0.0722f * sRGB_to_lin(color.b);
+
+	// L* in CIELAB
+	static float PerceivedLightness(RGB color) {
+		float y = RelativeLuminance(color);
+		float lStar = y <= 216 / 24389f
+			? y * (24389 / 27f)
+			: BMath.pow(y, 1 / 3f) * 116 - 16;
+
+		return lStar / 100f;
+	}
 }
 
 sealed class Gradient {
@@ -136,9 +170,9 @@ sealed class Gradient {
 	}
 
 	readonly List<Point> points = new(8) {
-		new(0f, hsb(0.2f)),
-		new(0.5f, hsb(0.65f)),
-		new(1f, hsb(0.8f)),
+		new(0f, hsb(0.0f, 0, 0)),
+		// new(0.5f, hsb(0.65f)),
+		new(1f, hsb(0.0f, 0)),
 	};
 	public IReadOnlyList<Point> Points => this.points;
 
