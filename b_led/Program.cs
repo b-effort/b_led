@@ -157,16 +157,24 @@ static class State {
 	public static Pattern? CurrentPattern { get; set; } = null;
 
 	static State() {
-		Palettes = new List<Palette>() {
+		Palettes = new List<Palette> {
 			new("b&w"),
-			new("rainbow", new Gradient(new Gradient.Point[] {
-				new(0f, hsb(0f)),
-				new(1f, hsb(1f)),
-			})),
-			new("cyan-magenta", new Gradient(new Gradient.Point[] {
-				new(0f, hsb(170 / 360f)),
-				new(1f, hsb(320 / 360f)),
-			})),
+			new(
+				"rainbow", new Gradient(
+					new Gradient.Point[] {
+						new(0f, hsb(0f)),
+						new(1f, hsb(1f)),
+					}
+				)
+			),
+			new(
+				"cyan-magenta", new Gradient(
+					new Gradient.Point[] {
+						new(0f, hsb(170 / 360f)),
+						new(1f, hsb(320 / 360f)),
+					}
+				)
+			),
 		};
 		CurrentPalette = Palettes[2];
 

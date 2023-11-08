@@ -54,11 +54,38 @@ sealed class PalettesWindow : IDisposable {
 
 	public void Show() {
 		SetNextWindowSize(em(24, 12), ImGuiCond.FirstUseEver);
-		Begin("palette");
+		Begin("palettes");
 		{
-			var palette = State.CurrentPalette;
-			if (palette != null)
-				GradientEdit("selected_palette", palette.Preview, this.editState);
+			var currentPalette = State.CurrentPalette;
+			if (currentPalette != null)
+				GradientEdit("current_palette", currentPalette.Preview, this.editState);
+			
+			SeparatorText("all palettes");
+			PushStyleColor(ImGuiCol.FrameBg, Vector4.Zero); 
+			if (BeginListBox("##palettes_list", GetContentRegionAvail())) {
+				int barHeight = emEven(1.5f);
+				float width = GetContentRegionAvail().X - Style.FramePadding.X * 2;
+				Vector2 barSize = vec2(width, barHeight);
+
+				var palettes = State.Palettes;
+				for (var i = 0; i < palettes.Count; i++) {
+					var palette = palettes[i];
+					var isSelected = palette == currentPalette;
+
+					if (isSelected) {
+						PushStyleColor(ImGuiCol.Button, GetColorU32(ImGuiCol.ButtonActive));
+					}
+					if (ImageButton($"##palette_{i}", palette.Preview.TextureId, barSize)) {
+						State.CurrentPalette = palette; 
+					}
+					if (isSelected) {
+						PopStyleColor(1);
+					}
+				}
+				
+				EndListBox();
+			}
+			PopStyleColor(1);
 		}
 		End();
 	}

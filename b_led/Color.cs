@@ -1,11 +1,12 @@
 namespace b_effort.b_led;
 
 static class Color {
-	// todo: hue can't be exactly 1f with this
 	public static HSB hsb(float h, float s = 1f, float b = 1f) {
-		h %= 1f;
-		if (!float.IsNormal(h)) {
-			h = 0f;
+		if (h != 1f) {
+			h %= 1f;
+			if (!float.IsNormal(h)) {
+				h = 0f;
+			}
 		}
 		return new HSB(h, s, b);
 	}
