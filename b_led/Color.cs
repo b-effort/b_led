@@ -218,6 +218,14 @@ sealed class Gradient {
 		return i;
 	}
 
+	public bool RemoveAt(int i) {
+		if (i <= 0 || this.points.Count - 1 <= i)
+			return false;
+		
+		this.points.RemoveAt(i);
+		return true;
+	}
+
 	public void Sort() {
 		this.points.Sort();
 	}
