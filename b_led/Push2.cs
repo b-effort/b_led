@@ -41,11 +41,13 @@ static class Push2 {
 		SetMidiMode(MidiMode.Dual);
 
 		// default palette
-		SetPalletEntry(0, hsb(0, 0, 0), 0);
-		for (var i = 1; i < PaletteSize; i++) {
-			SetPalletEntry(i, hsb(1f / PaletteSize, 1, 1), (float)i / PaletteSize);
+		var black = hsb(0, 0, 0);
+		for (var i = 0; i < PaletteSize; i++) {
+			SetPalletEntry(i, black, (float)i / PaletteSize);
 		}
 		ReapplyPalette();
+		
+		InitPadVelocities();
 	}
 
 	public static void Disconnect() {
@@ -99,7 +101,21 @@ static class Push2 {
 			MacroEncoder(Encoder.Device_8, pattern.m4);
 		}
 
-		UpdatePadLEDs();
+
+		var palettes = State.Palettes;
+		float paletteAnim = PatternScript.beat.triangle(8);
+		for (var i = 0; i < palettes.Count; i++) {
+			var palette = palettes[i];
+			var color = palette.Gradient.ColorAt(paletteAnim);
+			var pad = new Pad(i % 8, i / 8);
+			SetPadColor(pad, color);
+			
+			if (WasPressed(pad)) {
+				State.CurrentPalette = palette;
+			}
+		}
+		
+		ReapplyPalette();
 		UpdateButtonLEDs();
 		return;
 
@@ -130,7 +146,7 @@ static class Push2 {
 
 		while (bufferedNoteChanges.TryDequeue(out var msg)) {
 			if (Pad.TryGetNoteIndex(msg.note, out int i)) {
-				padsInputs[i] = msg.velocity;
+				padsInputs[i].Update(msg.velocity);
 			}
 		}
 
@@ -138,7 +154,7 @@ static class Push2 {
 			var button = (Button)msg.Control;
 			if (Enum.IsDefined(button)) {
 				buttonsInputs[button].Update(msg.Value);
-				return;
+				continue;
 			}
 			var encoder = (Encoder)msg.Control;
 			if (Enum.IsDefined(encoder)) {
@@ -190,34 +206,19 @@ static class Push2 {
 		}
 	}
 
-	static readonly Velocity[] padsInputs = new Velocity[Pad.NumPads];
-	static readonly Velocity[] padsOutputs = new Velocity[Pad.NumPads];
-	static readonly Velocity[] padsLastOutputs = new Velocity[Pad.NumPads];
+	static readonly ButtonState[] padsInputs = Enumerable.Range(0, Pad.NumPads)
+		.Select(_ => new ButtonState()).ToArray();
 
-	public static bool WasPressed(Pad pad) {
-		return false;
+	public static bool WasPressed(Pad pad) => padsInputs[pad.Index].WasPressed;
+
+	public static void SetPadColor(Pad pad, HSB color) {
+		int i = pad.Index + 1;
+		SetPalletEntry(i, color, (float)i / PaletteSize);
 	}
 
-	// TODO: treat as hue
-	public static void SetPadLED(Pad pad, float brightness) {
-		padsOutputs[pad.Index] = Velocity.From01(brightness);
-	}
-
-	static void UpdatePadLEDs() {
-		var outputs = padsOutputs;
-		var outputsLast = padsLastOutputs;
-		for (var i = 0; i < outputs.Length; i++) {
-			int velocity = outputs[i];
-			if (velocity == outputsLast[i])
-				continue;
-
-			var key = Pad.GetKey(i);
-			if (velocity > 0) {
-				output!.Send(new NoteOnMessage(MidiChannel, key, velocity));
-			} else {
-				output!.Send(new NoteOffMessage(MidiChannel, key, velocity));
-			}
-			outputsLast[i] = velocity;
+	static void InitPadVelocities() {
+		for (var i = 0; i < Pad.NumPads; i++) {
+			output!.Send(new NoteOnMessage(MidiChannel, Pad.GetKey(i), i + 1));
 		}
 	}
 
