@@ -212,10 +212,10 @@ sealed class Gradient {
 		throw new OopsiePoopsie($"{pos} not in gradient");
 	}
 
-	public bool Add(float pos, HSB color) {
-		this.points.Add(new Point(pos, color));
-		this.Sort();
-		return true;
+	public int Add(float pos, HSB color) {
+		int i = this.points.FindIndex(p => pos <= p);
+		this.points.Insert(i, new Point(pos, color));
+		return i;
 	}
 
 	public void Sort() {

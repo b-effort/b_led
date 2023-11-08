@@ -130,6 +130,7 @@ static class ImFonts {
 		};
 
 		Mono_17 = io.LoadTTF(JetBrainsMono_Regular_TTF, 17, &fontCfg);
+		rlImGui.LoadFontAwesome(px_to_pt(13));
 		Mono_15 = io.LoadTTF(JetBrainsMono_Regular_TTF, 15, &fontCfg);
 
 		Default = Mono_17;
