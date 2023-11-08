@@ -175,40 +175,17 @@ static class Widgets {
 
 #region gradient
 
-	public sealed class GradientEditState : IDisposable {
+	public sealed class GradientEditState {
 		const int Resolution = 32;
 
-		Gradient? gradient;
-		public Gradient Gradient {
-			get => this.gradient!;
-			set {
-				var needsUpdate = value != this.gradient;
-				this.gradient = value;
-				if (needsUpdate) {
-					this.UpdateTexture();
-				}
-			}
-		}
+		public GradientPreview GradientPreview { get; set; } = null!;
+		Gradient Gradient => this.GradientPreview.gradient;
+		public nint TextureId => this.GradientPreview.TextureId; 
 
 		public int SelectedIndex { get; private set; } = -1;
 		public Gradient.Point SelectedPoint => this.Gradient.Points[this.SelectedIndex];
 		public HSB RevertColor { get; private set; } = new();
 		public bool IsDragging { get; set; } = false;
-
-		public readonly Texture2D texture;
-		readonly rlColor[] pixels;
-
-		public GradientEditState() {
-			this.texture = RaylibUtil.CreateTexture(Resolution, 1, out this.pixels);
-		}
-
-		~GradientEditState() => this.Dispose();
-
-		public void Dispose() {
-			this.gradient = null;
-			rl.UnloadTexture(this.texture);
-			GC.SuppressFinalize(this);
-		}
 
 		public void Select(int i) {
 			var points = this.Gradient.Points;
@@ -223,18 +200,12 @@ static class Widgets {
 			this.RevertColor = points[i].color;
 		}
 
-		public void UpdateTexture() {
-			var pixels = this.pixels;
-			for (var x = 0; x < Resolution; x++) {
-				var color = this.Gradient.MapColor(hsb((float)x / Resolution));
-				pixels[x] = color.ToRGB();
-			}
-			rl.UpdateTexture(this.texture, pixels);
-		}
+		public void UpdatePreview() => this.GradientPreview.UpdateTexture();
 	}
 
-	public static bool GradientEdit(string id, Gradient gradient, GradientEditState state) {
-		state.Gradient = gradient;
+	public static bool GradientEdit(string id, GradientPreview gradientPreview, GradientEditState state) {
+		state.GradientPreview = gradientPreview;
+		var gradient = gradientPreview.gradient;
 		if (state.SelectedIndex < 0) {
 			state.Select(0);
 		}
@@ -260,7 +231,7 @@ static class Widgets {
 				Vector2 barSize = vec2(width, barHeight);
 
 				SetCursorScreenPos(origin);
-				Image((nint)state.texture.id, barSize);
+				Image(state.TextureId, barSize);
 			}
 
 
@@ -385,7 +356,7 @@ static class Widgets {
 		PopID();
 
 		if (changed) {
-			state.UpdateTexture();
+			state.UpdatePreview();
 		}
 
 		return changed;

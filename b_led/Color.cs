@@ -169,12 +169,26 @@ sealed class Gradient {
 		public static implicit operator float(Point @this) => @this.pos;
 	}
 
-	readonly List<Point> points = new(8) {
-		new(0f, hsb(0.0f, 0, 0)),
-		// new(0.5f, hsb(0.65f)),
-		new(1f, hsb(0.0f, 0)),
-	};
+	readonly List<Point> points;
 	public IReadOnlyList<Point> Points => this.points;
+
+	public Gradient() : this(
+		new List<Point> {
+			new(0f, hsb(0.0f, 0, 0)),
+			new(1f, hsb(0.0f, 0)),
+		}
+	) { }
+
+	public Gradient(IReadOnlyList<Point> points) {
+		if (points.Count < 2)
+			throw new ArgumentOutOfRangeException(nameof(points), points.Count, "Must have at least 2 points");
+		if (points[0] != 0f)
+			throw new ArgumentOutOfRangeException(nameof(points), points[0], "First point must have pos 0");
+		if (points[^1] != 1f)
+			throw new ArgumentOutOfRangeException(nameof(points), points[^1], "Last point must have pos 1");
+		
+		this.points = points.ToList();
+	}
 
 	[Impl(Inline)]
 	public HSB ColorAt(float pos) {
@@ -231,6 +245,50 @@ sealed class Gradient {
 	}
 }
 
+sealed class GradientPreview : IDisposable {
+	public readonly Gradient gradient;
+	public readonly int resolution;
+	public readonly Texture2D texture;
+	readonly rlColor[] pixels;
+
+	public nint TextureId => (nint)this.texture.id;
+
+	public GradientPreview(Gradient gradient, int resolution) {
+		this.gradient = gradient;
+		this.resolution = resolution;
+		this.texture = RaylibUtil.CreateTexture(resolution, 1, out this.pixels);
+		this.UpdateTexture();
+	}
+	
+	~GradientPreview() => this.Dispose();
+
+	public void Dispose() {
+		rl.UnloadTexture(this.texture);
+		GC.SuppressFinalize(this);
+	}
+	
+	public void UpdateTexture() {
+		var pixels = this.pixels;
+		for (var x = 0; x < this.resolution; x++) {
+			var color = this.gradient.MapColor(hsb((float)x / this.resolution));
+			pixels[x] = color.ToRGB();
+		}
+		rl.UpdateTexture(this.texture, pixels);
+	}
+
+}
+
 sealed class Palette {
-	public Gradient Gradient { get; set; } = new();
+	public string name;
+
+	public Gradient Gradient { get; }
+	public GradientPreview Preview { get; }
+
+	public Palette(string name) : this(name, new Gradient()) { }
+
+	public Palette(string name, Gradient gradient) {
+		this.name = name;
+		this.Gradient = gradient;
+		this.Preview = new GradientPreview(gradient, 128);
+	}
 }

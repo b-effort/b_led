@@ -52,8 +52,7 @@ ImGui.SetColorEditOptions(
 
 #region app setup
 
-State.Pattern = new TestPattern();
-State.Palette = new Palette();
+State.Init();
 
 using var previewWindow = new PreviewWindow();
 using var palettesWindow = new PalettesWindow();
@@ -151,30 +150,51 @@ static class ImFonts {
 
 static class State {
 	public const int BufferWidth = 128;
-	public const int NumPixels = 128;
 
-	public static Pattern? Pattern { get; set; } = null;
-	public static Palette? Palette { get; set; } = null;
+	public static List<Palette> Palettes { get; }
+	public static Palette? CurrentPalette { get; set; } = null;
+	
+	public static Pattern? CurrentPattern { get; set; } = null;
+
+	static State() {
+		Palettes = new List<Palette>() {
+			new("b&w"),
+			new("rainbow", new Gradient(new Gradient.Point[] {
+				new(0f, hsb(0f)),
+				new(1f, hsb(1f)),
+			})),
+			new("cyan-magenta", new Gradient(new Gradient.Point[] {
+				new(0f, hsb(170 / 360f)),
+				new(1f, hsb(320 / 360f)),
+			})),
+		};
+		CurrentPalette = Palettes[2];
+
+		CurrentPattern = new TestPattern();
+	}
+	
+	public static void Init() { }
 
 	// public static LEDMapper[] LEDMappers { get; set; } = Array.Empty<LEDMapper>();
 
 	public static readonly RGB[,] previewBuffer = new RGB[BufferWidth, BufferWidth];
 
 	public static void Update() {
-		if (Pattern is null)
+		if (CurrentPattern is null)
 			return;
 
-		Pattern.Update();
+		CurrentPattern.Update();
 
 		var outputs = previewBuffer;
-		var patternPixels = Pattern.pixels;
+		var patternPixels = CurrentPattern.pixels;
 		var hueOffset = Macro.hue_offset.Value;
+		var gradient = CurrentPalette?.Gradient;
 
 		for (var y = 0; y < BufferWidth; y++) {
 			for (var x = 0; x < BufferWidth; x++) {
 				var color = patternPixels[y, x];
-				if (Palette != null) {
-					color = Palette.Gradient.MapColor(
+				if (gradient != null) {
+					color = gradient.MapColor(
 						color with {
 							h = MathF.Abs(color.h + hueOffset) % 1f,
 						}

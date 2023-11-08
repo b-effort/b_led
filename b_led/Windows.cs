@@ -48,7 +48,7 @@ sealed class PalettesWindow : IDisposable {
 	~PalettesWindow() => this.Dispose();
 
 	public void Dispose() {
-		this.editState.Dispose();
+		// todo: might still need
 		GC.SuppressFinalize(this);
 	}
 
@@ -56,9 +56,9 @@ sealed class PalettesWindow : IDisposable {
 		SetNextWindowSize(em(24, 12), ImGuiCond.FirstUseEver);
 		Begin("palette");
 		{
-			var palette = State.Palette;
+			var palette = State.CurrentPalette;
 			if (palette != null)
-				GradientEdit("selected_palette", palette.Gradient, this.editState);
+				GradientEdit("selected_palette", palette.Preview, this.editState);
 		}
 		End();
 	}
@@ -106,7 +106,7 @@ sealed class MetronomeWindow {
 }
 
 sealed class MacrosWindow {
-	static Pattern? Pattern => State.Pattern;
+	static Pattern? Pattern => State.CurrentPattern;
 
 	public void Show() {
 		SetNextWindowSize(em(24, 12), ImGuiCond.FirstUseEver);

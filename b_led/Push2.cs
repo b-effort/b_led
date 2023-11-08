@@ -91,7 +91,7 @@ static class Push2 {
 		MacroEncoder(Encoder.Device_2, Macro.scaleY);
 		MacroEncoder(Encoder.Device_3, Macro.hue_offset);
 
-		var pattern = State.Pattern;
+		var pattern = State.CurrentPattern;
 		if (pattern != null) {
 			MacroEncoder(Encoder.Device_5, pattern.m1);
 			MacroEncoder(Encoder.Device_6, pattern.m2);
