@@ -104,7 +104,7 @@ void DrawUI() {
 	palettesWindow.Show();
 	metronomeWindow.Show();
 	macrosWindow.Show();
-	// funcPlotterWindow.Show();
+	funcPlotterWindow.Show();
 	pushWindow.Show();
 }
 
@@ -185,7 +185,7 @@ static class State {
 
 	// public static LEDMapper[] LEDMappers { get; set; } = Array.Empty<LEDMapper>();
 
-	public static readonly RGB[,] previewBuffer = new RGB[BufferWidth, BufferWidth];
+	public static readonly HSB[,] previewBuffer = new HSB[BufferWidth, BufferWidth];
 
 	public static void Update() {
 		if (CurrentPattern is null)
@@ -193,9 +193,9 @@ static class State {
 
 		CurrentPattern.Update();
 
-		var outputs = previewBuffer;
-		var patternPixels = CurrentPattern.pixels;
-		var hueOffset = Macro.hue_offset.Value;
+		HSB[,] outputs = previewBuffer;
+		HSB[,] patternPixels = CurrentPattern.pixels;
+		float hueOffset = Macro.hue_offset.Value;
 		var gradient = CurrentPalette?.Gradient;
 
 		for (var y = 0; y < BufferWidth; y++) {
@@ -208,7 +208,7 @@ static class State {
 						}
 					);
 				}
-				outputs[y, x] = color.ToRGB();
+				outputs[y, x] = color;
 			}
 		}
 	}

@@ -54,15 +54,15 @@ static class PatternScript {
 		float x2 = x % 1 * 2;
 		return x2 <= 1f ? x2 : 2f - x2;
 	}
-	public static float square(float x) => pulse(x, 0.5f);
+	public static float square(float x) => pulse(x + 0.5f, 0.5f);
 	public static float pulse(float x, float dutyCycle) => x % 1 >= 1 - dutyCycle % 1 ? 1f : 0f;
 
 	[SuppressMessage("ReSharper", "MemberHidesStaticFromOuterClass")]
 	public static class beat {
-		public static float saw(float beats = 1f) => interval(beats);
-		public static float sine(float beats) => PatternScript.sine(interval(beats));
-		public static float triangle(float beats) => PatternScript.triangle(interval(beats));
-		public static float square(float beats) => PatternScript.square(interval(beats));
+		public static float saw(float beats = 1f, float phase = 0f) => PatternScript.saw(interval(beats) + phase);
+		public static float sine(float beats, float phase = 0f) => PatternScript.sine(interval(beats) + phase);
+		public static float triangle(float beats, float phase = 0f) => PatternScript.triangle(interval(beats) + phase);
+		public static float square(float beats, float phase = 0f) => PatternScript.square(interval(beats) + phase);
 		public static float pulse(float beats, float dutyCycle) => PatternScript.pulse(interval(beats), dutyCycle);
 	}
 }
@@ -137,12 +137,12 @@ sealed class TestPattern : Pattern {
 	protected override HSB Render(int i, float x, float y) {
 		x -= 0.5f;
 		y -= 0.5f;
-		x *= 5 + beat.saw(24 * 2) * 50;
-		y *= 5 + beat.saw(40 * 2) * 50;
+		x *= 10;
+		y *= 10;
 
 		var h = (sin(x) + cos(t * 0.15f))
-		  / (sin(y + sin(x * 5f) * this.m2) + sin(t * 0.5f)) + beat.saw(4);
-		var t3 = beat.saw(4) * 0.5f + this.m1;
+		  / (sin(y + sin(x * 5f) * this.m2) + sin(t * 0.5f));
+		var t3 = 0.5f + this.m1;
 		var b = abs(h) < t3 ? 1 : 0;
 
 		h = h + 0.25f + beat.saw(2);

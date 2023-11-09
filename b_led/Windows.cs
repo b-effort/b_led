@@ -28,7 +28,7 @@ sealed class PreviewWindow : IDisposable {
 		var buffer = State.previewBuffer;
 		for (var y = 0; y < Resolution; y++) {
 			for (var x = 0; x < Resolution; x++) {
-				pixels[y * Resolution + x] = buffer[y, x];
+				pixels[y * Resolution + x] = buffer[y, x].ToRGB();
 			}
 		}
 		rl.UpdateTexture(this.texture, pixels);

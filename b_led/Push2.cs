@@ -1,3 +1,4 @@
+using System.Buffers;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using RtMidi.Core;
@@ -105,16 +106,21 @@ static class Push2 {
 		var palettes = State.Palettes;
 		float paletteAnim = PatternScript.beat.triangle(8);
 		for (var i = 0; i < palettes.Count; i++) {
+			var pad = new Pad(i % 8, i / 8);
 			var palette = palettes[i];
 			var color = palette.Gradient.ColorAt(paletteAnim);
-			var pad = new Pad(i % 8, i / 8);
+			
+			if (palette == State.CurrentPalette) {
+				color.b *= PatternScript.beat.triangle(1, 0.5f);
+			}
+			
 			SetPadColor(pad, color);
 			
 			if (WasPressed(pad)) {
 				State.CurrentPalette = palette;
 			}
 		}
-		
+
 		ReapplyPalette();
 		UpdateButtonLEDs();
 		return;
@@ -414,6 +420,7 @@ static class Push2 {
 #region sysex
 
 	static readonly byte[] SysExPrefaceBytes = { 0x00, 0x21, 0x1D, 0x01, 0x01 };
+	static readonly int SysExDataOffset = SysExPrefaceBytes.Length;
 
 	enum MidiMode {
 		Live = 0,
@@ -427,30 +434,44 @@ static class Push2 {
 		ReapplyPalette = 0x05,
 	}
 
-	static void SetMidiMode(MidiMode mode) => SendSysEx((byte)SysExCommands.SetMidiMode, (byte)mode);
-
-	static void SetPalletEntry(int i, HSB hsb, float white) {
-		var (r, g, b, w) = hsb.ToRGB(a: white);
-		SendSysEx(
-			(byte)SysExCommands.SetPaletteEntry,
-			(byte)i,
-			(byte)(r % 128), (byte)(r / 128),
-			(byte)(g % 128), (byte)(g / 128),
-			(byte)(b % 128), (byte)(b / 128),
-			(byte)(w % 128), (byte)(w / 128)
-		);
+	static readonly byte[] SetMidiModeBytes = SysExPrefaceBytes.Concat(
+		Enumerable.Repeat((byte)SysExCommands.SetMidiMode, 2)
+	).ToArray();
+	static void SetMidiMode(MidiMode mode) {
+		byte[] bytes = SetMidiModeBytes;
+		bytes[SysExDataOffset + 1] = (byte)mode;
+		SendSysEx(bytes);
 	}
 
-	static void ReapplyPalette() => SendSysEx((byte)SysExCommands.ReapplyPalette);
+	static readonly byte[] SetPaletteEntryBytes = SysExPrefaceBytes.Concat(
+		Enumerable.Repeat((byte)SysExCommands.SetPaletteEntry, 10)
+	).ToArray();
+	static void SetPalletEntry(int i, HSB hsb, float white) {
+		var (r, g, b, w) = hsb.ToRGB(a: white);
+		
+		byte[] bytes = SetPaletteEntryBytes;
+		int offset = SysExDataOffset;
+		bytes[offset + 1] = (byte)i;
+		bytes[offset + 2] = (byte)(r % 128);
+        bytes[offset + 3] = (byte)(r / 128);
+		bytes[offset + 4] = (byte)(g % 128);
+        bytes[offset + 5] = (byte)(g / 128);
+		bytes[offset + 6] = (byte)(b % 128);
+        bytes[offset + 7] = (byte)(b / 128);
+		bytes[offset + 8] = (byte)(w % 128);
+        bytes[offset + 9] = (byte)(w / 128);
+		SendSysEx(bytes);
+	}
 
-	static void SendSysEx(params byte[] bytes) {
-		if (!IsConnected)
-			return;
+	static readonly byte[] ReapplyPaletteBytes = SysExPrefaceBytes.Append((byte)SysExCommands.ReapplyPalette).ToArray();
+	static void ReapplyPalette() {
+		SendSysEx(ReapplyPaletteBytes);
+		InitPadVelocities();
+	}
 
-		var data = SysExPrefaceBytes
-			.Concat(bytes)
-			.ToArray();
-		output.Send(new SysExMessage(data));
+	static void SendSysEx(byte[] bytes) {
+		if (IsConnected)
+			output.Send(new SysExMessage(bytes));
 	}
 
 #endregion
