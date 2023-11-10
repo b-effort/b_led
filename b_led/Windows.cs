@@ -91,6 +91,112 @@ sealed class PalettesWindow : IDisposable {
 	}
 }
 
+sealed class PatternsWindow {
+	public void Show() {
+		SetNextWindowSize(em(24, 12), ImGuiCond.FirstUseEver);
+		Begin("patterns");
+		{
+			var drawList = GetWindowDrawList();
+			
+			var currentPattern = State.CurrentPattern;
+			var patterns = State.Patterns;
+
+			Vector2 avail = GetContentRegionAvail();
+			float cellMargin = Style.FramePadding.X * 2;
+			float minColWidth = em(4) + cellMargin;
+			int numCols = (int)(avail.X / minColWidth);
+			int numRows = (int)MathF.Ceiling((float)patterns.Length / numCols);
+			Vector2 patternSize = vec2(MathF.Floor(avail.X / numCols) - cellMargin);
+			float rowHeight = patternSize.Y + cellMargin;
+			
+			if (BeginTable("patterns_table", numCols, 0, avail)) {
+				PushStyleVar(ImGuiStyleVar.CellPadding, 0);
+				for (int row = 0, i = 0; row < numRows; row++) {
+					TableNextRow(0, rowHeight);
+					PushID(row);
+					for (int col = 0; col < numCols && i < patterns.Length; col++, i++) {
+						TableSetColumnIndex(col);
+
+						var pattern = patterns[i];
+						DrawPattern(pattern);
+					}
+					PopID();
+				}
+
+				EndTable();
+				PopStyleVar(1);
+			}
+			
+			void DrawPattern(Pattern pattern) {
+				var origin = GetCursorScreenPos();
+				drawList.AddImage(
+					p_min: origin,
+					p_max: origin + patternSize,
+					user_texture_id: pattern.TextureId
+				);
+				drawList.AddRect(
+					p_min: origin,
+					p_max: origin + patternSize,
+					col: GetColorU32(ImGuiCol.Border),
+					rounding: 0,
+					flags: ImDrawFlags.None,
+					thickness: 3
+				);
+			}
+		}
+		End();
+	}
+}
+
+sealed class ClipsWindow {
+	public void Show() {
+		SetNextWindowSize(em(24, 12), ImGuiCond.FirstUseEver);
+		Begin("clips");
+		{
+			var drawList = GetWindowDrawList();
+			
+			var clipBank = State.CurrentClipBank;
+			var clips = clipBank.clips;
+			int numCols = clipBank.numCols;
+			int numRows = clipBank.numRows;
+
+			Vector2 avail = GetContentRegionAvail();
+			float cellMargin = Style.FramePadding.X * 2;
+			Vector2 clipSize = vec2(MathF.Floor(avail.X / numCols) - cellMargin);
+			float rowHeight = clipSize.Y + cellMargin;
+			
+			if (BeginTable("clips_table", numCols, 0, avail)) {
+				PushStyleVar(ImGuiStyleVar.CellPadding, 0);
+				for (var row = 0; row < numRows; row++) {
+					TableNextRow(0, rowHeight);
+					PushID(row);
+					for (var col = 0; col < numCols; col++) {
+						TableSetColumnIndex(col);
+
+						DrawClip(clips[row, col]);
+					}
+					PopID();
+				}
+				EndTable();
+				PopStyleVar(1);
+			}
+			
+			void DrawClip(Clip clip) {
+				var origin = GetCursorScreenPos();
+				drawList.AddRect(
+					p_min: origin,
+					p_max: origin + clipSize,
+					col: GetColorU32(ImGuiCol.Border),
+					rounding: 0,
+					flags: ImDrawFlags.None,
+					thickness: 3
+				);
+			}
+		}
+		End();
+	}
+}
+
 sealed class MetronomeWindow {
 	readonly float[] beatPoints = new float[144];
 	int beatOffset = 0;

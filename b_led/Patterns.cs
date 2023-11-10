@@ -55,7 +55,7 @@ static class PatternScript {
 		return x2 <= 1f ? x2 : 2f - x2;
 	}
 	public static float square(float x) => pulse(x + 0.5f, 0.5f);
-	public static float pulse(float x, float dutyCycle) => x % 1 >= 1 - dutyCycle % 1 ? 1f : 0f;
+	public static float pulse(float x, float dutyCycle) => x % 1 >= 1 - (dutyCycle % 1) ? 1f : 0f;
 
 	[SuppressMessage("ReSharper", "MemberHidesStaticFromOuterClass")]
 	public static class beat {
@@ -63,7 +63,7 @@ static class PatternScript {
 		public static float sine(float beats, float phase = 0f) => PatternScript.sine(interval(beats) + phase);
 		public static float triangle(float beats, float phase = 0f) => PatternScript.triangle(interval(beats) + phase);
 		public static float square(float beats, float phase = 0f) => PatternScript.square(interval(beats) + phase);
-		public static float pulse(float beats, float dutyCycle) => PatternScript.pulse(interval(beats), dutyCycle);
+		public static float pulse(float beats, float dutyCycle, float phase = 0f) => PatternScript.pulse(interval(beats) + phase, dutyCycle);
 	}
 }
 
@@ -94,7 +94,7 @@ public sealed class Macro {
 
 #endregion
 
-abstract class Pattern {
+abstract class Pattern : IDisposable {
 	public Macro m1 = new() { Name = "macro 1" };
 	public Macro m2 = new() { Name = "macro 2" };
 	public Macro m3 = new() { Name = "macro 3" };
@@ -104,25 +104,47 @@ abstract class Pattern {
 	public IReadOnlyList<Macro> Macros => this.macros
 		??= new[] { this.m1, this.m2, this.m3, this.m4 };
 
-	const int BufferWidth = State.BufferWidth;
-	public readonly HSB[,] pixels = new HSB[BufferWidth, BufferWidth];
+	public const int Width = State.BufferWidth;
+	public const int Height = State.BufferWidth;
+	public readonly HSB[,] pixels;
+
+	readonly Texture2D texture;
+	readonly rlColor[] texturePixels;
+
+	public nint TextureId => (nint)this.texture.id;
+
+	protected Pattern() {
+		this.pixels = new HSB[Width, Width];
+		this.texture = RaylibUtil.CreateTexture(Width, Height, out this.texturePixels);
+	}
+
+	~Pattern() => this.Dispose();
+
+	public void Dispose() {
+		rl.UnloadTexture(this.texture);
+		GC.SuppressFinalize(this);
+	}
 
 	public void Update() {
 		this.PreRender();
 
-		var scaleX = Macro.scaleX.Value;
-		var scaleY = Macro.scaleY.Value;
+		float scaleX = Macro.scaleX.Value;
+		float scaleY = Macro.scaleY.Value;
 
-		for (var y = 0; y < BufferWidth; y++) {
-			for (var x = 0; x < BufferWidth; x++) {
-				int i = y * BufferWidth + x;
-				const float lengthMinusOne = BufferWidth - 1f;
+		HSB[,] pixels = this.pixels;
+		for (var y = 0; y < Width; y++) {
+			for (var x = 0; x < Width; x++) {
+				int i = y * Width + x;
+				const float lengthMinusOne = Width - 1f;
 				float x01 = x / lengthMinusOne * scaleX;
 				float y01 = y / lengthMinusOne * scaleY;
 
-				this.pixels[y, x] = this.Render(i, x01, y01);
+				pixels[y, x] = this.Render(i, x01, y01);
+				this.texturePixels[y * Width + x] = pixels[y, x].ToRGB();
 			}
 		}
+
+		rl.UpdateTexture(this.texture, this.texturePixels);
 	}
 
 	protected virtual void PreRender() { }

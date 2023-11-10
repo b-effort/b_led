@@ -14,6 +14,8 @@ static class CollectionExtensions {
 static class VectorShorthand {
 	[Impl(Inline)] public static Vector2 vec2(float value) => new(value);
 	[Impl(Inline)] public static Vector2 vec2(float x, float y) => new(x, y);
+
+	public static Vector2 Floor(this Vector2 @this) => vec2(MathF.Floor(@this.X), MathF.Floor(@this.Y));
 }
 
 static class ImGuiShorthand {
@@ -24,6 +26,7 @@ static class ImGuiShorthand {
 	[Impl(Inline)] public static float em(float value) => value * FontSize;
 	[Impl(Inline)] public static Vector2 em(float x, float y) => em(new Vector2(x, y));
 	[Impl(Inline)] public static Vector2 em(Vector2 value) => value * FontSize;
+	[Impl(Inline)] public static int emInt(float value) => (int)MathF.Floor(value * FontSize);
 	[Impl(Inline)] public static int emEven(float value) => BMath.nearestEven(value * FontSize);
 	[Impl(Inline)] public static int emOdd(float value) => BMath.nearestOdd(value * FontSize);
 

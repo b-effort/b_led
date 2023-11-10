@@ -16,8 +16,8 @@ using b_effort.b_led;
 /*
 
 # Runway
-- ! palettes
-- pattern banks
+- ! clip banks
+- project files
 
 
 # Mapping
@@ -30,7 +30,7 @@ buffers are [y, x] = [y * width + x]
 
 const int FPS = 144;
 const int Width = 1280;
-const int Height = 960;
+const int Height = 1280;
 
 #region init
 
@@ -56,6 +56,8 @@ State.Init();
 
 using var previewWindow = new PreviewWindow();
 using var palettesWindow = new PalettesWindow();
+var patternsWindow = new PatternsWindow();
+var clipsWindow = new ClipsWindow();
 var metronomeWindow = new MetronomeWindow();
 var macrosWindow = new MacrosWindow();
 var pushWindow = new PushWindow();
@@ -102,6 +104,8 @@ void DrawUI() {
 	ImGui.DockSpaceOverViewport();
 	previewWindow.Show();
 	palettesWindow.Show();
+	clipsWindow.Show();
+	patternsWindow.Show();
 	metronomeWindow.Show();
 	macrosWindow.Show();
 	funcPlotterWindow.Show();
@@ -151,12 +155,23 @@ static class ImFonts {
 static class State {
 	public const int BufferWidth = 128;
 
-	public static List<Palette> Palettes { get; }
-	public static Palette? CurrentPalette { get; set; } = null;
+	public static Pattern[] Patterns { get; }
+	public static Pattern? CurrentPattern { get; set; }
 	
-	public static Pattern? CurrentPattern { get; set; } = null;
+	public static List<Palette> Palettes { get; }
+	public static Palette? CurrentPalette { get; set; }
+	
+	public static ClipBank[] ClipBanks { get; }
+	public static ClipBank CurrentClipBank { get; set; }
 
 	static State() {
+		Patterns = new Pattern[] {
+			new TestPattern(),
+			new HSBDemoPattern(),
+			new EdgeBurstPattern(),
+		};
+		CurrentPattern = Patterns[0];
+
 		Palettes = new List<Palette> {
 			new("b&w"),
 			new(
@@ -178,7 +193,17 @@ static class State {
 		};
 		CurrentPalette = Palettes[2];
 
-		CurrentPattern = new TestPattern();
+		ClipBanks = new ClipBank[] {
+			new("bank 1"),
+			new("bank 2"),
+			new("bank 3"),
+			new("bank 4"),
+			new("bank 5"),
+			new("bank 6"),
+			new("bank 7"),
+			new("bank 8"),
+		};
+		CurrentClipBank = ClipBanks[0];
 	}
 	
 	public static void Init() { }
@@ -209,6 +234,67 @@ static class State {
 					);
 				}
 				outputs[y, x] = color;
+			}
+		}
+	}
+}
+
+enum ClipType {
+	Pattern,
+	Palette,
+}
+
+sealed class Clip {
+	public ClipType Type { get; private set; }
+	public bool IsTriggered { get; set; }
+
+	Pattern? pattern;
+	public Pattern? Pattern {
+		get => this.pattern;
+		set {
+			this.pattern = value;
+			if (value != null) {
+				this.Type = ClipType.Pattern;
+				this.palette = null;
+			}
+		}
+	}
+
+	Palette? palette;
+	public Palette? Palette {
+		get => this.palette;
+		set {
+			this.palette = value;
+			if (value != null) {
+				this.Type = ClipType.Palette;
+				this.pattern = null;
+			}
+		}
+	}
+
+	public bool HasContents => this.Type switch {
+		ClipType.Pattern => this.pattern != null, 
+		ClipType.Palette => this.palette != null,
+		_                => throw new ArgumentOutOfRangeException()
+	};
+
+	public bool IsActive => this.IsTriggered && this.HasContents;
+}
+
+sealed class ClipBank {
+	public readonly int numCols = 8;
+	public readonly int numRows = 8;
+	
+	public string name;
+	public readonly Clip[,] clips;
+
+	public ClipBank(string name) {
+		this.name = name;
+		
+		this.clips = new Clip[this.numRows, this.numCols];
+		for (var y = 0; y < this.numRows; y++) {
+			for (var x = 0; x < this.numCols; x++) {
+				this.clips[y, x] = new Clip();
 			}
 		}
 	}

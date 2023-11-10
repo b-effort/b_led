@@ -248,8 +248,8 @@ sealed class Gradient {
 
 sealed class GradientPreview : IDisposable {
 	public readonly Gradient gradient;
-	public readonly int resolution;
-	public readonly Texture2D texture;
+	readonly int resolution;
+	readonly Texture2D texture;
 	readonly rlColor[] pixels;
 
 	public nint TextureId => (nint)this.texture.id;
