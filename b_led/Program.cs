@@ -52,8 +52,6 @@ ImGui.SetColorEditOptions(
 
 #region app setup
 
-State.Init();
-
 using var previewWindow = new PreviewWindow();
 using var palettesWindow = new PalettesWindow();
 var patternsWindow = new PatternsWindow();
@@ -152,6 +150,11 @@ static class ImFonts {
 
 // delegate LEDMap LEDMapper(int numPixels);
 
+static class DragDropType {
+	public const string Pattern = "pattern";
+	public const string Palette = "palette";
+}
+
 static class State {
 	public const int BufferWidth = 128;
 
@@ -170,6 +173,9 @@ static class State {
 			new HSBDemoPattern(),
 			new EdgeBurstPattern(),
 		};
+		foreach (var pattern in Patterns) {
+			pattern.Update();
+		}
 		CurrentPattern = Patterns[0];
 
 		Palettes = new List<Palette> {
@@ -206,8 +212,6 @@ static class State {
 		CurrentClipBank = ClipBanks[0];
 	}
 	
-	public static void Init() { }
-
 	// public static LEDMapper[] LEDMappers { get; set; } = Array.Empty<LEDMapper>();
 
 	public static readonly HSB[,] previewBuffer = new HSB[BufferWidth, BufferWidth];

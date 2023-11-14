@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using static ImGuiNET.ImGui;
 using static b_effort.b_led.Widgets;
 using static b_effort.b_led.ImGuiShorthand;
@@ -52,7 +53,7 @@ sealed class PalettesWindow : IDisposable {
 		GC.SuppressFinalize(this);
 	}
 
-	public void Show() {
+	public unsafe void Show() {
 		SetNextWindowSize(em(24, 12), ImGuiCond.FirstUseEver);
 		Begin("palettes");
 		{
@@ -81,6 +82,17 @@ sealed class PalettesWindow : IDisposable {
 					if (isSelected) {
 						PopStyleColor(1);
 					}
+
+					if (IsItemHovered()) {
+						SetTooltip(palette.name);
+					}
+
+					if (BeginDragDropSource()) {
+						SetDragDropPayload(DragDropType.Palette, new nint(&i), sizeof(int));
+						Text(palette.name);
+						Image(palette.Preview.TextureId, vec2(width, em(1)));
+						EndDragDropSource();
+					}
 				}
 				
 				EndListBox();
@@ -92,7 +104,7 @@ sealed class PalettesWindow : IDisposable {
 }
 
 sealed class PatternsWindow {
-	public void Show() {
+	public unsafe void Show() {
 		SetNextWindowSize(em(24, 12), ImGuiCond.FirstUseEver);
 		Begin("patterns");
 		{
@@ -105,43 +117,62 @@ sealed class PatternsWindow {
 			float cellMargin = Style.FramePadding.X * 2;
 			float minColWidth = em(4) + cellMargin;
 			int numCols = (int)(avail.X / minColWidth);
+
+			if (numCols < 1)
+				return;
+			
 			int numRows = (int)MathF.Ceiling((float)patterns.Length / numCols);
 			Vector2 patternSize = vec2(MathF.Floor(avail.X / numCols) - cellMargin);
 			float rowHeight = patternSize.Y + cellMargin;
 			
 			if (BeginTable("patterns_table", numCols, 0, avail)) {
 				PushStyleVar(ImGuiStyleVar.CellPadding, 0);
+				
 				for (int row = 0, i = 0; row < numRows; row++) {
 					TableNextRow(0, rowHeight);
 					PushID(row);
-					for (int col = 0; col < numCols && i < patterns.Length; col++, i++) {
+					for (int col = 0; col < numCols; col++, i++) {
 						TableSetColumnIndex(col);
+						PushID(i);
 
-						var pattern = patterns[i];
-						DrawPattern(pattern);
+						if (i < patterns.Length) {
+							var pattern = patterns[i];
+							
+							var origin = GetCursorScreenPos();
+							drawList.AddImage(
+								p_min: origin,
+								p_max: origin + patternSize,
+								user_texture_id: pattern.TextureId
+							);
+							drawList.AddRect(
+								p_min: origin,
+								p_max: origin + patternSize,
+								col: GetColorU32(ImGuiCol.Border),
+								rounding: 0,
+								flags: ImDrawFlags.None,
+								thickness: 3
+							);
+
+							InvisibleButton(string.Empty, patternSize);
+							if (IsItemHovered()) {
+								SetTooltip(pattern.name);
+							}
+
+							if (BeginDragDropSource()) {
+								SetDragDropPayload(DragDropType.Pattern, new nint(&i), sizeof(int));
+								Text(pattern.name);
+								Image(pattern.TextureId, patternSize);
+								EndDragDropSource();
+							}
+							
+						}
+						PopID();
 					}
 					PopID();
 				}
 
-				EndTable();
 				PopStyleVar(1);
-			}
-			
-			void DrawPattern(Pattern pattern) {
-				var origin = GetCursorScreenPos();
-				drawList.AddImage(
-					p_min: origin,
-					p_max: origin + patternSize,
-					user_texture_id: pattern.TextureId
-				);
-				drawList.AddRect(
-					p_min: origin,
-					p_max: origin + patternSize,
-					col: GetColorU32(ImGuiCol.Border),
-					rounding: 0,
-					flags: ImDrawFlags.None,
-					thickness: 3
-				);
+				EndTable();
 			}
 		}
 		End();
@@ -149,7 +180,7 @@ sealed class PatternsWindow {
 }
 
 sealed class ClipsWindow {
-	public void Show() {
+	public unsafe void Show() {
 		SetNextWindowSize(em(24, 12), ImGuiCond.FirstUseEver);
 		Begin("clips");
 		{
@@ -172,25 +203,58 @@ sealed class ClipsWindow {
 					PushID(row);
 					for (var col = 0; col < numCols; col++) {
 						TableSetColumnIndex(col);
+						var id = row * numCols + col;
+						PushID(id);
+						var clip = clips[row, col];
 
-						DrawClip(clips[row, col]);
+						var origin = GetCursorScreenPos();
+						if (clip.HasContents) {
+							switch (clip.Type) {
+								case ClipType.Pattern:
+								{
+									var pattern = clip.Pattern!;
+									drawList.AddImage(pattern.TextureId, origin, origin + clipSize);
+									break;
+								}
+								case ClipType.Palette:
+								{
+									drawList.AddImage(clip.Palette!.Preview.TextureId, origin, origin + clipSize);
+									break;
+								}
+								default: throw new ArgumentOutOfRangeException();
+							}
+						}
+						drawList.AddRect(
+							p_min: origin,
+							p_max: origin + clipSize,
+							col: GetColorU32(ImGuiCol.Border),
+							rounding: 0,
+							flags: ImDrawFlags.None,
+							thickness: 3
+						);
+						
+						InvisibleButton(string.Empty, clipSize);
+						
+						if (BeginDragDropTarget()) {
+							var payload = AcceptDragDropPayload(null);
+							if (payload.NativePtr != (void*)0) {
+								if (payload.IsDataType(DragDropType.Pattern)) {
+									int patternIndex = *(int*)payload.Data;
+									Pattern pattern = State.Patterns[patternIndex];
+									clip.Pattern = pattern;
+								} else if (payload.IsDataType(DragDropType.Palette)) {
+									int paletteIndex = *(int*)payload.Data;
+									Palette palette = State.Palettes[paletteIndex];
+									clip.Palette = palette;
+								}
+							}
+							EndDragDropTarget();
+						}
 					}
 					PopID();
 				}
-				EndTable();
 				PopStyleVar(1);
-			}
-			
-			void DrawClip(Clip clip) {
-				var origin = GetCursorScreenPos();
-				drawList.AddRect(
-					p_min: origin,
-					p_max: origin + clipSize,
-					col: GetColorU32(ImGuiCol.Border),
-					rounding: 0,
-					flags: ImDrawFlags.None,
-					thickness: 3
-				);
+				EndTable();
 			}
 		}
 		End();

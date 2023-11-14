@@ -83,8 +83,8 @@ public sealed class Macro {
 
 	public static implicit operator float(Macro @this) => @this.value;
 
-	public static readonly Macro scaleX = new() { Name = "scale x", Value = 0.5f, Min = 0.1f, Max = 10f };
-	public static readonly Macro scaleY = new() { Name = "scale y", Value = 0.5f, Min = 0.1f, Max = 10f };
+	public static readonly Macro scaleX = new() { Name = "scale x", Value = 1f, Min = 0.1f, Max = 10f };
+	public static readonly Macro scaleY = new() { Name = "scale y", Value = 1f, Min = 0.1f, Max = 10f };
 	public static readonly Macro hue_offset = new() { Name = "hue", Min = -5f, Max = 5f };
 
 	static Macro[]? global;
@@ -95,6 +95,8 @@ public sealed class Macro {
 #endregion
 
 abstract class Pattern : IDisposable {
+	public readonly string name; 
+	
 	public Macro m1 = new() { Name = "macro 1" };
 	public Macro m2 = new() { Name = "macro 2" };
 	public Macro m3 = new() { Name = "macro 3" };
@@ -114,6 +116,7 @@ abstract class Pattern : IDisposable {
 	public nint TextureId => (nint)this.texture.id;
 
 	protected Pattern() {
+		this.name = this.GetType().Name.Replace("Pattern", null);
 		this.pixels = new HSB[Width, Width];
 		this.texture = RaylibUtil.CreateTexture(Width, Height, out this.texturePixels);
 	}
