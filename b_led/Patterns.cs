@@ -167,8 +167,9 @@ sealed class TestPattern : Pattern {
 
 		var h = (sin(x) + cos(t * 0.15f))
 		  / (sin(y + sin(x * 5f) * this.m2) + sin(t * 0.5f));
-		var t3 = 0.5f + this.m1;
-		var b = abs(h) < t3 ? 1 : 0;
+		var t3 = 0.05f + this.m1;
+		var diff = (t3 - abs(h)) / t3;
+		var b = diff > 0.67f ? 1 : diff > 0f ? diff / 0.67f : 0f;
 
 		h = h + 0.25f + beat.saw(2);
 

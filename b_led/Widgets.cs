@@ -208,6 +208,8 @@ static class Widgets {
 		var gradient = gradientPreview.gradient;
 		if (state.SelectedIndex < 0) {
 			state.Select(0);
+		} else if (state.SelectedIndex > gradient.Points.Count - 1) {
+			state.Select(gradient.Points.Count - 1);
 		}
 		
 		int barHeight = emEven(1);
