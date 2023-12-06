@@ -88,7 +88,7 @@ static class FixtureServer {
 			}
 		}
 
-		sendTask = SendAsync();
+		sendTask = Task.Run(SendAsync);
 		return;
 
 		async Task SendAsync() {

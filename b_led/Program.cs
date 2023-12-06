@@ -30,7 +30,7 @@ https://electromage.com/docs/intro-to-mapping
 buffers are [y, x] = [y * width + x]
  */
 
-const int FPS = 60;
+const int FPS = 120;
 const int Width = 1280;
 const int Height = 1280;
 
