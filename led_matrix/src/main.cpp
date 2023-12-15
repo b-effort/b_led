@@ -138,7 +138,7 @@ extern "C" void app_main() {
 	// https://docs.espressif.com/projects/esp-idf/en/latest/esp32s3/api-guides/performance/speed.html#choosing-task-priorities-of-the-application
 	xTaskCreatePinnedToCore(task_web, "task_web", 10000, nullptr, 5, task_h_web, 1);
 	xTaskCreatePinnedToCore(task_led, "task_led", 10000, nullptr, 5, task_h_led, 0);
-	// xTaskCreate(task_input, "task_input", 2048, nullptr, 2, task_h_input);
+	xTaskCreate(task_input, "task_input", 2048, nullptr, 2, task_h_input);
 
 	Serial.println("*** STARTED ***");
 }
@@ -153,13 +153,13 @@ void task_web(void* taskParams) {
 	ws.setReconnectInterval(1000);
 
 	while (true) {
-		auto now = micros();
+		// auto now = micros();
 		ws.loop();
-		auto t = micros() - now;
-		if (t > 10000) {
-			Serial.print("ws.loop: ");
-			Serial.println(t);
-		}
+		// auto t = micros() - now;
+		// if (t > 10000) {
+		// 	Serial.print("ws.loop: ");
+		// 	Serial.println(t);
+		// }
 
 		vTaskDelay(1);
 	}
@@ -192,8 +192,8 @@ void onWsEvent(WStype_t type, byte* payload, size_t length) {
 						Serial.println("ERROR: data length doesn't match number of leds. length=" + String(length));
 						return;
 					}
-					memcpy(ledBuffer, data, length);
 
+					memcpy(ledBuffer, data, length);
 					xEventGroupSetBits(eg, EVENT_frameReady);
 					break;
 				}
@@ -213,15 +213,14 @@ void task_led(void* taskParams) {
 	while (true) {
 		xEventGroupWaitBits(eg, EVENT_frameReady, pdTRUE, pdTRUE, portMAX_DELAY);
 
-		// auto now = micros();
-		// Serial.println("set leds: start");
+		auto now = micros();
 		setLEDs(ledBuffer);
-		// Serial.print("set leds: ");
-		// Serial.println(micros() - now);
+		Serial.print("set leds: ");
+		Serial.println(micros() - now);
 	}
 }
 
-void setLEDs(byte* data) {
+void IRAM_ATTR setLEDs(byte* data) {
 	for (int i = 0; i < NUM_LEDS; i++) {
 		short x = i % WIDTH;
 		short y = i / WIDTH;
@@ -283,7 +282,7 @@ void task_input(void* params) {
 		buttonUpLast = buttonUp;
 		buttonDownLast = buttonDown;
 
-		vTaskDelay(1);
+		vTaskDelay(1000);
 	}
 }
 
