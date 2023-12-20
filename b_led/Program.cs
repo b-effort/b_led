@@ -9,9 +9,7 @@ global using rlColor = Raylib_cs.Color;
 global using rlImGui_cs;
 global using ImGuiNET;
 global using static b_effort.b_led.Color;
-global using static b_effort.b_led.MethodImplShorthand;
-global using static b_effort.b_led.VectorShorthand;
-
+using System.Diagnostics;
 using b_effort.b_led;
 
 /*
@@ -30,7 +28,7 @@ https://electromage.com/docs/intro-to-mapping
 buffers are [y, x] = [y * width + x]
  */
 
-const int FPS = 120;
+const int FPS = 144;
 const int Width = 1280;
 const int Height = 1280;
 
@@ -70,25 +68,31 @@ var funcPlotterWindow = new FuncPlotterWindow {
 		("square", PatternScript.square),
 	},
 };
-Push2.Connect();
 
+Push2.Connect();
 FixtureServer.Start();
 
 #endregion
 
+var deltaTimer = Stopwatch.StartNew();
+float deltaTime = 1f / FPS;
+
 while (!rl.WindowShouldClose()) {
-	Update();
+	Update(deltaTime);
 
 	rl.BeginDrawing();
 	{
 		rl.ClearBackground(rlColor.BLACK);
 
-		rlImGui.Begin(Metronome.TDelta);
+		rlImGui.Begin(deltaTime);
 		DrawUI();
 		rlImGui.End();
 		rl.DrawFPS(Width - 84, 4);
 	}
 	rl.EndDrawing();
+	
+	deltaTime = (float)deltaTimer.Elapsed.TotalSeconds;
+	deltaTimer.Restart();
 }
 
 Push2.Dispose();
@@ -96,12 +100,12 @@ rlImGui.Shutdown();
 rl.CloseWindow();
 return;
 
-void Update() {
+void Update(float deltaTime) {
 	Push2.Update();
 	Metronome.Tick();
 	State.Update();
 
-	FixtureServer.SendLEDs().Wait();
+	FixtureServer.Update(deltaTime);
 }
 
 void DrawUI() {
@@ -220,7 +224,7 @@ static class State {
 	
 	// public static LEDMapper[] LEDMappers { get; set; } = Array.Empty<LEDMapper>();
 
-	public static readonly HSB[,] previewBuffer = new HSB[BufferWidth, BufferWidth];
+	public static readonly RGB[,] outputBuffer = new RGB[BufferWidth, BufferWidth];
 
 	public static void Update() {
 		if (CurrentPattern is null)
@@ -228,22 +232,19 @@ static class State {
 
 		CurrentPattern.Update();
 
-		HSB[,] outputs = previewBuffer;
+		RGB[,] outputs = outputBuffer;
 		HSB[,] patternPixels = CurrentPattern.pixels;
 		float hueOffset = Macro.hue_offset.Value;
 		var gradient = CurrentPalette?.Gradient;
 
 		for (var y = 0; y < BufferWidth; y++) {
 			for (var x = 0; x < BufferWidth; x++) {
-				var color = patternPixels[y, x];
+				HSB color = patternPixels[y, x];
+				color.h = MathF.Abs(color.h + hueOffset) % 1f;
 				if (gradient != null) {
-					color = gradient.MapColor(
-						color with {
-							h = MathF.Abs(color.h + hueOffset) % 1f,
-						}
-					);
+					color = gradient.MapColor(color);
 				}
-				outputs[y, x] = color;
+				outputs[y, x] = color.ToRGB();
 			}
 		}
 	}

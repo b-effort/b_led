@@ -26,7 +26,7 @@ static class Color {
 			);
 		}
 
-		public static implicit operator rlColor(RGB @this) => new(@this.r, @this.g, @this.b, @this.a);
+		public static explicit operator rlColor(RGB @this) => new(@this.r, @this.g, @this.b, @this.a);
 	}
 
 	public record struct HSB(float h, float s, float b) {
@@ -132,11 +132,10 @@ static class Color {
 	}
 
 	public static byte f32_to_int8(float value) => (byte)(value * 255 + 0.5f);
-	public static float int8_to_f32(byte value) => value / 255f;
 
 	// https://stackoverflow.com/questions/596216/formula-to-determine-perceived-brightness-of-rgb-color/56678483#56678483
 	static float sRGB_to_lin(byte value) {
-		float v = int8_to_f32(value);
+		float v = value / 255f;
 
 		return v <= 0.04045
 			? v / 12.92f
@@ -272,7 +271,7 @@ sealed class GradientPreview : IDisposable {
 		var pixels = this.pixels;
 		for (var x = 0; x < this.resolution; x++) {
 			var color = this.gradient.MapColor(hsb((float)x / this.resolution));
-			pixels[x] = color.ToRGB();
+			pixels[x] = (rlColor)color.ToRGB();
 		}
 		rl.UpdateTexture(this.texture, pixels);
 	}

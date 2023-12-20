@@ -26,10 +26,10 @@ sealed class PreviewWindow : IDisposable {
 
 	public unsafe void Show() {
 		var pixels = (rlColor*)this.image.data;
-		var buffer = State.previewBuffer;
+		var buffer = State.outputBuffer;
 		for (var y = 0; y < Resolution; y++) {
 			for (var x = 0; x < Resolution; x++) {
-				pixels[y * Resolution + x] = buffer[y, x].ToRGB();
+				pixels[y * Resolution + x] = (rlColor)buffer[y, x];
 			}
 		}
 		rl.UpdateTexture(this.texture, pixels);

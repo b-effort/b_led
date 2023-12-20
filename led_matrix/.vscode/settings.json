@@ -1,9 +1,9 @@
 {
   "cSpell.words": ["APKEY"],
   "files.associations": {
-    "**/.ebextensions/*.config": "yaml",
     "*.env": "dotenv",
     "*.ljp": "xml",
+    "**/.ebextensions/*.config": "yaml",
     "atomic": "cpp",
     "cstdint": "cpp",
     "array": "cpp",
@@ -31,6 +31,13 @@
     "regex": "cpp",
     "ratio": "cpp",
     "typeinfo": "cpp",
-    "utility": "cpp"
+    "utility": "cpp",
+    "*.ipp": "cpp",
+    "deque": "cpp",
+    "forward_list": "cpp",
+    "list": "cpp",
+    "string": "cpp",
+    "unordered_map": "cpp",
+    "unordered_set": "cpp"
   }
 }

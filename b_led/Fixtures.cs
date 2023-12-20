@@ -1,10 +1,13 @@
+using System.Buffers;
+using System.Diagnostics;
+using System.Diagnostics.Tracing;
 using System.Net;
+using System.Net.WebSockets;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using vtortola.WebSockets;
-using vtortola.WebSockets.Rfc6455;
 
-namespace b_effort.b_led; 
+namespace b_effort.b_led;
 
 // TODO: simplify, use HttpListener directly
 // https://github.com/paulbatum/WebSocket-Samples/blob/master/HttpListenerWebSocketEcho/Server/Server.cs
@@ -14,93 +17,124 @@ static class FixtureServer {
 		GetId_Reply = 1,
 		SetLEDs = 2,
 	}
-	
-	const int Port = 42000;
-	static readonly WebSocketListener ws;
+
+	const string Address = "http://+:42000/b_led/";
+	static readonly HttpListener httpListener = new();
 	static readonly Dictionary<string, WebSocket> clients = new();
+	
+	const int FPS = 60;
+	const float FrameTimeTarget = 1f / FPS;
+	static float frameTime = 0f;
 
-	const int BufferSize = State.BufferWidth * State.BufferWidth * 3 + 1;
-	static byte[] ledBuffer = new byte[BufferSize];
+	static Task? acceptClientsTask;
+	static Task? sendTask;
+	static readonly AutoResetEvent sendFrameEvent = new(false);
 
-	static FixtureServer() {
-		var endPoint = new IPEndPoint(IPAddress.Any, Port);
-		var options = new WebSocketListenerOptions {
-			Standards = { new WebSocketFactoryRfc6455() },
-			SendBufferSize = BufferSize,
-			PingMode = PingMode.Manual,
-			// Logger = ConsoleLogger.Instance,
-		};
-		ws = new WebSocketListener(endPoint, options);
+	public static void Start() {
+		httpListener.Prefixes.Add(Address);
+		httpListener.Start();
+		
+		acceptClientsTask = Task.Run(LoopAcceptClients);
+		sendTask = Task.Run(LoopSend);
 	}
 
-	public static async void Start() {
-		await ws.StartAsync();
-		_ = Task.Run(AcceptClients);
-		// _ = Task.Run(
-		// 	async () => {
-		// 		foreach ((_, WebSocket client) in clients) {
-		// 			if (client.IsConnected) {
-		// 				await client.ReadMessageAsync(CancellationToken.None);
-		// 			}
-		// 		}
-		// 	}
-		// );
+	public static void Update(float deltaTime) {
+		frameTime += deltaTime;
+		if (frameTime >= FrameTimeTarget) {
+			frameTime -= FrameTimeTarget;
+			sendFrameEvent.Set();
+		}
 	}
-
-	public static async Task AcceptClients() {
-		while (ws.IsStarted) {
+	
+	static async Task LoopAcceptClients() {
+		while (httpListener.IsListening) {
+			var ctx = await httpListener.GetContextAsync();
+			
+			if (!ctx.Request.IsWebSocketRequest) {
+				ctx.Response.StatusCode = 400;
+				ctx.Response.Close();
+				continue;
+			}
+			
 			try {
-				WebSocket? client = await ws.AcceptWebSocketAsync(CancellationToken.None);
-				if (client?.IsConnected != true)
-					continue;
-				Console.WriteLine($"Client connected: {client.RemoteEndpoint.Serialize()}");
-					
-				await client.WriteBytesAsync(new[] { (byte)MessageType.GetId });
-				string? fixtureId = await client.ReadStringAsync(CancellationToken.None);
-				if (fixtureId != null) {
-					fixtureId = fixtureId[1..];
-					Console.WriteLine($"Fixture ID: {fixtureId}");
-					clients[fixtureId] = client;
-				}
+				var wsCtx = await ctx.AcceptWebSocketAsync(subProtocol: null);
+				var client = wsCtx.WebSocket;
+				Console.WriteLine($"Client connected: {ctx.Request.RemoteEndPoint.Serialize()}");
+
+				await client.SendAsync(new[] { (byte)MessageType.GetId }, WebSocketMessageType.Binary, true, CancellationToken.None);
+				
+				byte[] idBuffer = ArrayPool<byte>.Shared.Rent(128);
+				var idResponse = await client.ReceiveAsync(idBuffer, CancellationToken.None);
+				string id = Encoding.UTF8.GetString(idBuffer, 1, idResponse.Count - 1);
+				Console.WriteLine($"Fixture ID: {id}");
+				
+				clients[id] = client;
+				
 			} catch (Exception ex) {
 				Console.WriteLine($"ERROR: Failed to accept client {ex}");
+				ctx.Response.StatusCode = 500;
+				ctx.Response.Close();
 			}
 		}
+		// ReSharper disable once FunctionNeverReturns
 	}
-
-	static Task? sendTask = null;
 	
-	public static async Task SendLEDs() {
-		if (sendTask != null && sendTask.IsCompleted != true) {
-			Console.WriteLine($"still sending");
-			await sendTask;
-		}
-		HSB[,] inputs = State.previewBuffer;
-		ledBuffer[0] = (byte)MessageType.SetLEDs;
+	const int SendBufferSize = State.BufferWidth * State.BufferWidth * 3 + 1;
+	static readonly byte[] sendBuffer = new byte[SendBufferSize];
 
-		for (var y = 0; y < State.BufferWidth; y++) {
-			for (var x = 0; x < State.BufferWidth; x++) {
-				var rgb = inputs[y, x].ToRGB();
-				var i = (y * State.BufferWidth + x) * 3 + 1;
-				ledBuffer[i + 0] = rgb.r;
-				ledBuffer[i + 1] = rgb.g;
-				ledBuffer[i + 2] = rgb.b;
+	static async Task LoopSend() {
+		while (httpListener.IsListening) {
+			sendFrameEvent.WaitOne();
+
+			RGB[,] inputs = State.outputBuffer;
+			sendBuffer[0] = (byte)MessageType.SetLEDs;
+
+			for (var y = 0; y < State.BufferWidth; y++) {
+				for (var x = 0; x < State.BufferWidth; x++) {
+					var color = inputs[y, x];
+					var i = (y * State.BufferWidth + x) * 3 + 1;
+					sendBuffer[i + 0] = color.r;
+					sendBuffer[i + 1] = color.g;
+					sendBuffer[i + 2] = color.b;
+				}
 			}
-		}
 
-		sendTask = Task.Run(SendAsync);
-		return;
-
-		async Task SendAsync() {
 			foreach ((string fixtureId, WebSocket client) in clients) {
-				if (client.IsConnected) {
+				if (client.State == WebSocketState.Open) {
 					try {
-						await client.WriteBytesAsync(ledBuffer);
+						await client.SendAsync(sendBuffer, WebSocketMessageType.Binary, true, CancellationToken.None);
 					} catch (Exception ex) {
 						Console.WriteLine(ex);
 					}
 				}
 			}
 		}
+		// ReSharper disable once FunctionNeverReturns
+	}
+}
+
+sealed class DebugHttpEventListener : EventListener {
+	protected override void OnEventSourceCreated(EventSource eventSource) {
+		Console.WriteLine($"source {eventSource.Name}");
+		if (
+			eventSource.Name is "Private.InternalDiagnostics.System.Net.HttpListener" 
+		                     or "Private.InternalDiagnostics.System.Net.Sockets"
+		) {
+			this.EnableEvents(eventSource, EventLevel.LogAlways);
+		}
+	}
+
+	protected override void OnEventWritten(EventWrittenEventArgs e) {
+		var sb = new StringBuilder()
+			.Append($"{e.TimeStamp:HH:mm:ss.fffffff} [{e.EventName}] ");
+		for (int i = 0; i < e.Payload?.Count; i++) {
+			if (i > 0)
+				sb.Append(", ");
+
+			sb.Append($"{e.PayloadNames?[i]}: {e.Payload[i]}");
+		}
+		try {
+			Console.WriteLine(sb.ToString());
+		} catch { /**/ }
 	}
 }

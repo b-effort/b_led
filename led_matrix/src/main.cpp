@@ -54,11 +54,14 @@ void connectSavedWiFi() {
 
 #define WS_IP "192.168.86.100"
 #define WS_PORT 42000
+#define WS_PATH "/b_led/"
 #define FIXTURE_ID "matrix_1"
 
 #define BAUD_RATE 115200
 #define PIN_BUTTON_UP 6
 #define PIN_BUTTON_DOWN 7
+
+#pragma region leds & matrix
 
 #define WIDTH 64
 #define HEIGHT 64
@@ -67,7 +70,7 @@ const int NUM_LEDS = WIDTH * HEIGHT;
 const int LED_BUFFER_SIZE = NUM_LEDS * 3;
 byte ledBuffer[LED_BUFFER_SIZE] = { 0 };
 
-const HUB75_I2S_CFG::i2s_pins MATRIX_PINS = {
+const HUB75_I2S_CFG::i2s_pins matrix_pins = {
 	.r1 = 42,
 	.g1 = 41,
 	.b1 = 40,
@@ -83,8 +86,22 @@ const HUB75_I2S_CFG::i2s_pins MATRIX_PINS = {
 	.oe = 14,
 	.clk = 2,
 };
-const HUB75_I2S_CFG MATRIX_CONFIG(WIDTH, HEIGHT, 1, MATRIX_PINS);
-MatrixPanel_I2S_DMA* display = nullptr;
+const HUB75_I2S_CFG matrix_config(
+	WIDTH,
+	HEIGHT,
+	1, // chain
+	matrix_pins,
+	HUB75_I2S_CFG::SHIFTREG,
+	false, // double buff
+	HUB75_I2S_CFG::HZ_15M,
+	DEFAULT_LAT_BLANKING,
+	true, // clock phase
+	50, // hz target
+	8 // color depth target
+);
+MatrixPanel_I2S_DMA* matrix_display = nullptr;
+
+#pragma endregion
 
 WebSocketsClient ws;
 typedef enum {
@@ -124,20 +141,20 @@ extern "C" void app_main() {
 	}
 
 	// *** display
-	display = new MatrixPanel_I2S_DMA(MATRIX_CONFIG);
-	if (not display->begin()) {
+	matrix_display = new MatrixPanel_I2S_DMA(matrix_config);
+	if (not matrix_display->begin()) {
 		Serial.println("ERROR: display memory allocation failed!");
 		return;
 	}
-	display->setBrightness(220);
-	display->clearScreen();
+	matrix_display->setBrightness(220);
+	matrix_display->clearScreen();
 	Serial.println("display initialized");
 
 	// *** tasks
 	eg = xEventGroupCreate();
 	// https://docs.espressif.com/projects/esp-idf/en/latest/esp32s3/api-guides/performance/speed.html#choosing-task-priorities-of-the-application
-	xTaskCreatePinnedToCore(task_web, "task_web", 10000, nullptr, 5, task_h_web, 1);
-	xTaskCreatePinnedToCore(task_led, "task_led", 10000, nullptr, 5, task_h_led, 0);
+	xTaskCreatePinnedToCore(task_web, "task_web", 10000, nullptr, 5, task_h_web, 0);
+	xTaskCreatePinnedToCore(task_led, "task_led", 10000, nullptr, 5, task_h_led, 1);
 	xTaskCreate(task_input, "task_input", 2048, nullptr, 2, task_h_input);
 
 	Serial.println("*** STARTED ***");
@@ -148,7 +165,7 @@ extern "C" void app_main() {
 void onWsEvent(WStype_t, byte*, size_t);
 
 void task_web(void* taskParams) {
-	ws.begin(WS_IP, WS_PORT, "/");
+	ws.begin(WS_IP, WS_PORT, WS_PATH);
 	ws.onEvent(onWsEvent);
 	ws.setReconnectInterval(1000);
 
@@ -173,7 +190,7 @@ void onWsEvent(WStype_t type, byte* payload, size_t length) {
 		}
 		case WStype_DISCONNECTED: {
 			Serial.println("ws disconnected");
-			display->clearScreen();
+			matrix_display->clearScreen();
 			break;
 		}
 		case WStype_BIN: {
@@ -226,11 +243,11 @@ void IRAM_ATTR setLEDs(byte* data) {
 		short y = i / WIDTH;
 
 		int offset = i * 3;
-		byte r = *(data + offset);
-		byte g = *(data + offset + 1);
-		byte b = *(data + offset + 2);
+		byte r = data[offset];
+		byte g = data[offset + 1];
+		byte b = data[offset + 2];
 
-		display->drawPixelRGB888(x, y, r, g, b);
+		matrix_display->drawPixelRGB888(x, y, r, g, b);
 	}
 }
 

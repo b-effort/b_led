@@ -143,7 +143,7 @@ abstract class Pattern : IDisposable {
 				float y01 = y / lengthMinusOne * scaleY;
 
 				pixels[y, x] = this.Render(i, x01, y01);
-				this.texturePixels[y * Width + x] = pixels[y, x].ToRGB();
+				this.texturePixels[y * Width + x] = (rlColor)pixels[y, x].ToRGB();
 			}
 		}
 
@@ -160,18 +160,16 @@ sealed class TestPattern : Pattern {
 	}
 
 	protected override HSB Render(int i, float x, float y) {
-		x -= 0.5f;
-		y -= 0.5f;
-		x *= 10;
-		y *= 10;
-
+		x *= 20;
+		y *= 20;
+		
 		var h = (sin(x) + cos(t * 0.15f))
 		  / (sin(y + sin(x * 5f) * this.m2) + sin(t * 0.5f));
 		var t3 = 0.05f + this.m1;
 		var diff = (t3 - abs(h)) / t3;
 		var b = diff > 0.67f ? 1 : diff > 0f ? diff / 0.67f : 0f;
 
-		h = h + 0.25f + beat.saw(2);
+		h = h + 0.25f + beat.saw(16);
 
 		return hsb(h, 1, b);
 

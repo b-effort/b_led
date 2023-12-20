@@ -1,3 +1,5 @@
+global using static b_effort.b_led.MethodImplShorthand;
+global using static b_effort.b_led.VectorShorthand;
 global using ImplAttribute = System.Runtime.CompilerServices.MethodImplAttribute;
 using System.Runtime.CompilerServices;
 
@@ -14,7 +16,9 @@ static class CollectionExtensions {
 static class VectorShorthand {
 	[Impl(Inline)] public static Vector2 vec2(float value) => new(value);
 	[Impl(Inline)] public static Vector2 vec2(float x, float y) => new(x, y);
+}
 
+static class VectorExtensions {
 	public static Vector2 Floor(this Vector2 @this) => vec2(MathF.Floor(@this.X), MathF.Floor(@this.Y));
 }
 
