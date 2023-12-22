@@ -57,7 +57,7 @@ sealed class PalettesWindow : IDisposable {
 		SetNextWindowSize(em(24, 12), ImGuiCond.FirstUseEver);
 		Begin("palettes");
 		{
-			var currentPalette = State.CurrentPalette;
+			var currentPalette = State.ActivePalette;
 			if (currentPalette != null)
 				GradientEdit("current_palette", currentPalette.Preview, this.editState);
 			
@@ -77,7 +77,7 @@ sealed class PalettesWindow : IDisposable {
 						PushStyleColor(ImGuiCol.Button, GetColorU32(ImGuiCol.ButtonActive));
 					}
 					if (ImageButton($"##palette_{i}", palette.Preview.TextureId, barSize)) {
-						State.CurrentPalette = palette; 
+						State.ActivePalette = palette; 
 					}
 					if (isSelected) {
 						PopStyleColor(1);
@@ -110,7 +110,7 @@ sealed class PatternsWindow {
 		{
 			var drawList = GetWindowDrawList();
 			
-			var currentPattern = State.CurrentPattern;
+			var currentPattern = State.ActivePattern;
 			var patterns = State.Patterns;
 
 			Vector2 avail = GetContentRegionAvail();
@@ -153,7 +153,10 @@ sealed class PatternsWindow {
 								thickness: 3
 							);
 
-							InvisibleButton(string.Empty, patternSize);
+							if (InvisibleButton(string.Empty, patternSize)) {
+								State.ActivePattern = pattern;
+							}
+							
 							if (IsItemHovered()) {
 								SetTooltip(pattern.name);
 							}
@@ -186,10 +189,10 @@ sealed class ClipsWindow {
 		{
 			var drawList = GetWindowDrawList();
 			
-			var clipBank = State.CurrentClipBank;
+			var clipBank = State.SelectedClipBank;
 			var clips = clipBank.clips;
-			int numCols = clipBank.numCols;
-			int numRows = clipBank.numRows;
+			const int numCols = ClipBank.NumCols;
+			const int numRows = ClipBank.NumRows;
 
 			Vector2 avail = GetContentRegionAvail();
 			float cellMargin = Style.FramePadding.X * 2;
@@ -209,16 +212,15 @@ sealed class ClipsWindow {
 
 						var origin = GetCursorScreenPos();
 						if (clip.HasContents) {
-							switch (clip.Type) {
-								case ClipType.Pattern:
+							switch (clip.contents) {
+								case Palette palette:
 								{
-									var pattern = clip.Pattern!;
-									drawList.AddImage(pattern.TextureId, origin, origin + clipSize);
+									drawList.AddImage(palette.Preview.TextureId, origin, origin + clipSize);
 									break;
 								}
-								case ClipType.Palette:
+								case Pattern pattern:
 								{
-									drawList.AddImage(clip.Palette!.Preview.TextureId, origin, origin + clipSize);
+									drawList.AddImage(pattern.TextureId, origin, origin + clipSize);
 									break;
 								}
 								default: throw new ArgumentOutOfRangeException();
@@ -233,7 +235,9 @@ sealed class ClipsWindow {
 							thickness: 3
 						);
 						
-						InvisibleButton(string.Empty, clipSize);
+						if (InvisibleButton(string.Empty, clipSize)) {
+							clip.Activate();
+						}
 						
 						if (BeginDragDropTarget()) {
 							var payload = AcceptDragDropPayload(null);
@@ -241,11 +245,11 @@ sealed class ClipsWindow {
 								if (payload.IsDataType(DragDropType.Pattern)) {
 									int patternIndex = *(int*)payload.Data;
 									Pattern pattern = State.Patterns[patternIndex];
-									clip.Pattern = pattern;
+									clip.contents = pattern;
 								} else if (payload.IsDataType(DragDropType.Palette)) {
 									int paletteIndex = *(int*)payload.Data;
 									Palette palette = State.Palettes[paletteIndex];
-									clip.Palette = palette;
+									clip.contents = palette;
 								}
 							}
 							EndDragDropTarget();
@@ -303,7 +307,7 @@ sealed class MetronomeWindow {
 }
 
 sealed class MacrosWindow {
-	static Pattern? Pattern => State.CurrentPattern;
+	static Pattern? Pattern => State.ActivePattern;
 
 	public void Show() {
 		SetNextWindowSize(em(24, 12), ImGuiCond.FirstUseEver);

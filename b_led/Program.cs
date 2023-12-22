@@ -15,7 +15,6 @@ using b_effort.b_led;
 /*
 
 # Runway
-- matrix panel
 - clip launching
 - project files
 
@@ -161,33 +160,23 @@ static class ImFonts {
 // delegate LEDMap LEDMapper(int numPixels);
 
 static class DragDropType {
-	public const string Pattern = "pattern";
 	public const string Palette = "palette";
+	public const string Pattern = "pattern";
 }
 
 static class State {
 	public const int BufferWidth = 64;
 
-	public static Pattern[] Patterns { get; }
-	public static Pattern? CurrentPattern { get; set; }
-	
 	public static List<Palette> Palettes { get; }
-	public static Palette? CurrentPalette { get; set; }
+	public static Palette? ActivePalette { get; set; }
+	
+	public static Pattern[] Patterns { get; }
+	public static Pattern? ActivePattern { get; set; }
 	
 	public static ClipBank[] ClipBanks { get; }
-	public static ClipBank CurrentClipBank { get; set; }
+	public static ClipBank SelectedClipBank { get; set; }
 
 	static State() {
-		Patterns = new Pattern[] {
-			new TestPattern(),
-			new HSBDemoPattern(),
-			new EdgeBurstPattern(),
-		};
-		foreach (var pattern in Patterns) {
-			pattern.Update();
-		}
-		CurrentPattern = Patterns[0];
-
 		Palettes = new List<Palette> {
 			new("b&w"),
 			new(
@@ -207,7 +196,18 @@ static class State {
 				)
 			),
 		};
-		CurrentPalette = Palettes[2];
+		ActivePalette = Palettes[2];
+		
+		Patterns = new Pattern[] {
+			new TestPattern(),
+			new HSBDemoPattern(),
+			new EdgeBurstPattern(),
+		};
+		// init preview
+		foreach (var pattern in Patterns) {
+			pattern.Update();
+		}
+		ActivePattern = Patterns[0];
 
 		ClipBanks = new ClipBank[] {
 			new("bank 1"),
@@ -219,7 +219,7 @@ static class State {
 			new("bank 7"),
 			new("bank 8"),
 		};
-		CurrentClipBank = ClipBanks[0];
+		SelectedClipBank = ClipBanks[0];
 	}
 	
 	// public static LEDMapper[] LEDMappers { get; set; } = Array.Empty<LEDMapper>();
@@ -227,15 +227,15 @@ static class State {
 	public static readonly RGB[,] outputBuffer = new RGB[BufferWidth, BufferWidth];
 
 	public static void Update() {
-		if (CurrentPattern is null)
+		if (ActivePattern is null)
 			return;
 
-		CurrentPattern.Update();
+		ActivePattern.Update();
 
 		RGB[,] outputs = outputBuffer;
-		HSB[,] patternPixels = CurrentPattern.pixels;
+		HSB[,] patternPixels = ActivePattern.pixels;
 		float hueOffset = Macro.hue_offset.Value;
-		var gradient = CurrentPalette?.Gradient;
+		var gradient = ActivePalette?.Gradient;
 
 		for (var y = 0; y < BufferWidth; y++) {
 			for (var x = 0; x < BufferWidth; x++) {
@@ -250,61 +250,49 @@ static class State {
 	}
 }
 
-enum ClipType {
-	Pattern,
-	Palette,
-}
+interface ClipContents {}
 
-sealed class Clip {
-	public ClipType Type { get; private set; }
-	public bool IsTriggered { get; set; }
+class Clip {
+	public ClipContents? contents;
 
-	Pattern? pattern;
-	public Pattern? Pattern {
-		get => this.pattern;
-		set {
-			this.pattern = value;
-			if (value != null) {
-				this.Type = ClipType.Pattern;
-				this.palette = null;
-			}
-		}
-	}
+	public bool HasContents => this.contents != null;
 
-	Palette? palette;
-	public Palette? Palette {
-		get => this.palette;
-		set {
-			this.palette = value;
-			if (value != null) {
-				this.Type = ClipType.Palette;
-				this.pattern = null;
-			}
-		}
-	}
-
-	public bool HasContents => this.Type switch {
-		ClipType.Pattern => this.pattern != null, 
-		ClipType.Palette => this.palette != null,
-		_                => throw new ArgumentOutOfRangeException()
+	public bool IsActive => this.contents switch {
+		null            => false,
+		Palette palette => State.ActivePalette == palette,
+		Pattern pattern => State.ActivePattern == pattern,
+		_               => throw new ArgumentOutOfRangeException(),
 	};
 
-	public bool IsActive => this.IsTriggered && this.HasContents;
+	public void Activate() {
+		if (this.contents is null)
+			return;
+
+		switch (this.contents) {
+			case Palette palette:
+				State.ActivePalette = palette;
+				break;
+			case Pattern pattern:
+				State.ActivePattern = pattern;
+				break;
+			default: throw new ArgumentOutOfRangeException();
+		}
+	}
 }
 
 sealed class ClipBank {
-	public readonly int numCols = 8;
-	public readonly int numRows = 8;
-	
+	public const int NumCols = 8;
+	public const int NumRows = 8;
+
 	public string name;
 	public readonly Clip[,] clips;
 
 	public ClipBank(string name) {
 		this.name = name;
 		
-		this.clips = new Clip[this.numRows, this.numCols];
-		for (var y = 0; y < this.numRows; y++) {
-			for (var x = 0; x < this.numCols; x++) {
+		this.clips = new Clip[NumRows, NumCols];
+		for (var y = 0; y < NumRows; y++) {
+			for (var x = 0; x < NumCols; x++) {
 				this.clips[y, x] = new Clip();
 			}
 		}

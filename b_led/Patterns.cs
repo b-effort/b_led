@@ -94,7 +94,7 @@ public sealed class Macro {
 
 #endregion
 
-abstract class Pattern : IDisposable {
+abstract class Pattern : ClipContents, IDisposable {
 	public readonly string name; 
 	
 	public Macro m1 = new() { Name = "macro 1" };

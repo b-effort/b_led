@@ -278,7 +278,7 @@ sealed class GradientPreview : IDisposable {
 
 }
 
-sealed class Palette {
+sealed class Palette : ClipContents {
 	public string name;
 
 	public Gradient Gradient { get; }
