@@ -1,5 +1,4 @@
 using System.Buffers;
-using System.Diagnostics;
 using System.Diagnostics.Tracing;
 using System.Net;
 using System.Net.WebSockets;
@@ -113,7 +112,7 @@ static class FixtureServer {
 	}
 }
 
-sealed class DebugHttpEventListener : EventListener {
+sealed class DebugSocketEventListener : EventListener {
 	protected override void OnEventSourceCreated(EventSource eventSource) {
 		Console.WriteLine($"source {eventSource.Name}");
 		if (

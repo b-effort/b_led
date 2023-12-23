@@ -95,7 +95,9 @@ public sealed class Macro {
 #endregion
 
 abstract class Pattern : ClipContents, IDisposable {
-	public readonly string name; 
+	public string Id => this.name;
+
+	public readonly string name;
 	
 	public Macro m1 = new() { Name = "macro 1" };
 	public Macro m2 = new() { Name = "macro 2" };
@@ -135,16 +137,15 @@ abstract class Pattern : ClipContents, IDisposable {
 		float scaleY = Macro.scaleY.Value;
 
 		HSB[,] pixels = this.pixels;
-		for (var y = 0; y < Width; y++) {
-			for (var x = 0; x < Width; x++) {
-				int i = y * Width + x;
-				const float lengthMinusOne = Width - 1f;
-				float x01 = x / lengthMinusOne * scaleX;
-				float y01 = y / lengthMinusOne * scaleY;
+		for (var y = 0; y < Width; y++)
+		for (var x = 0; x < Width; x++) {
+			int i = y * Width + x;
+			const float lengthMinusOne = Width - 1f;
+			float x01 = x / lengthMinusOne * scaleX;
+			float y01 = y / lengthMinusOne * scaleY;
 
-				pixels[y, x] = this.Render(i, x01, y01);
-				this.texturePixels[y * Width + x] = (rlColor)pixels[y, x].ToRGB();
-			}
+			pixels[y, x] = this.Render(i, x01, y01);
+			this.texturePixels[y * Width + x] = (rlColor)pixels[y, x].ToRGB();
 		}
 
 		rl.UpdateTexture(this.texture, this.texturePixels);

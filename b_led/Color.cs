@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace b_effort.b_led;
 
 static class Color {
@@ -30,9 +32,9 @@ static class Color {
 	}
 
 	public record struct HSB(float h, float s, float b) {
-		public float h = h;
-		public float s = s;
-		public float b = b;
+		[JsonInclude] public float h = h;
+		[JsonInclude] public float s = s;
+		[JsonInclude] public float b = b;
 
 		[Impl(Inline)] public RGB ToRGB(float a = 1) {
 			if (this.s == 0) {
@@ -161,8 +163,8 @@ static class Color {
 
 sealed class Gradient {
 	public sealed record Point(float pos, HSB color) : IComparable<Point> {
-		public float pos = pos;
-		public HSB color = color;
+		[JsonInclude] public float pos = pos;
+		[JsonInclude] public HSB color = color;
 
 		public int CompareTo(Point? other) => other is null ? 1 : this.pos.CompareTo(other.pos);
 
@@ -170,7 +172,7 @@ sealed class Gradient {
 	}
 
 	readonly List<Point> points;
-	public IReadOnlyList<Point> Points => this.points;
+	[JsonInclude] public IReadOnlyList<Point> Points => this.points;
 
 	public Gradient() : this(
 		new List<Point> {
@@ -179,6 +181,7 @@ sealed class Gradient {
 		}
 	) { }
 
+	[JsonConstructor]
 	public Gradient(IReadOnlyList<Point> points) {
 		if (points.Count < 2)
 			throw new ArgumentOutOfRangeException(nameof(points), points.Count, "Must have at least 2 points");
@@ -279,16 +282,19 @@ sealed class GradientPreview : IDisposable {
 }
 
 sealed class Palette : ClipContents {
-	public string name;
+	public string Id => this.name;
 
-	public Gradient Gradient { get; }
-	public GradientPreview Preview { get; }
-
+	[JsonInclude] public string name;
+	[JsonInclude] public readonly Gradient gradient;
+	
+	public readonly GradientPreview preview;
+	
 	public Palette(string name) : this(name, new Gradient()) { }
 
+	[JsonConstructor]
 	public Palette(string name, Gradient gradient) {
 		this.name = name;
-		this.Gradient = gradient;
-		this.Preview = new GradientPreview(gradient, 128);
+		this.gradient = gradient;
+		this.preview = new GradientPreview(gradient, 128);
 	}
 }

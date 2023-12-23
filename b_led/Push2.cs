@@ -108,7 +108,7 @@ static class Push2 {
 		for (var i = 0; i < palettes.Count; i++) {
 			var pad = new Pad(i % 8, i / 8);
 			var palette = palettes[i];
-			var color = palette.Gradient.ColorAt(paletteAnim);
+			var color = palette.gradient.ColorAt(paletteAnim);
 			
 			if (palette == State.ActivePalette) {
 				color.b *= PatternScript.beat.triangle(1, 0.5f);

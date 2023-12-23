@@ -10,6 +10,7 @@ global using rlImGui_cs;
 global using ImGuiNET;
 global using static b_effort.b_led.Color;
 using System.Diagnostics;
+using System.Text.Json.Serialization;
 using b_effort.b_led;
 
 /*
@@ -52,7 +53,7 @@ ImGui.SetColorEditOptions(
 #region app setup
 
 using var previewWindow = new PreviewWindow();
-using var palettesWindow = new PalettesWindow();
+var palettesWindow = new PalettesWindow();
 var patternsWindow = new PatternsWindow();
 var clipsWindow = new ClipsWindow();
 var metronomeWindow = new MetronomeWindow();
@@ -109,6 +110,21 @@ void Update(float deltaTime) {
 
 void DrawUI() {
 	ImGui.DockSpaceOverViewport();
+	
+	if (ImGui.BeginMainMenuBar()) {
+		if (ImGui.BeginMenu("File")) {
+			if (ImGui.MenuItem("Save")) {
+				State.SaveProject();
+			}
+			if (ImGui.MenuItem("Load")) {
+				State.LoadProject();
+			}
+			if (ImGui.MenuItem("Load demo project")) {
+				State.LoadDemoProject();
+			}
+		}
+	}
+	
 	previewWindow.Show();
 	palettesWindow.Show();
 	clipsWindow.Show();
@@ -165,60 +181,73 @@ static class DragDropType {
 }
 
 static class State {
+	const string ProjectFile = $"test.{Project.FileExt}";
+
 	public const int BufferWidth = 64;
 
-	public static List<Palette> Palettes { get; }
+	static Project project = new();
+
+	public static List<Palette> Palettes => project.Palettes;
 	public static Palette? ActivePalette { get; set; }
 	
 	public static Pattern[] Patterns { get; }
 	public static Pattern? ActivePattern { get; set; }
-	
-	public static ClipBank[] ClipBanks { get; }
-	public static ClipBank SelectedClipBank { get; set; }
 
-	static State() {
-		Palettes = new List<Palette> {
-			new("b&w"),
-			new(
-				"rainbow", new Gradient(
+	public static ClipBank[] ClipBanks => project.ClipBanks;
+	public static ClipBank? SelectedClipBank { get; set; }
+
+	public static void LoadDemoProject() {
+		project = new Project {
+			Palettes = {
+				new("b&w"),
+				new("rainbow", new(
 					new Gradient.Point[] {
 						new(0f, hsb(0f)),
 						new(1f, hsb(1f)),
 					}
-				)
-			),
-			new(
-				"cyan-magenta", new Gradient(
+				)),
+				new("cyan-magenta", new(
 					new Gradient.Point[] {
 						new(0f, hsb(170 / 360f)),
 						new(1f, hsb(320 / 360f)),
 					}
-				)
-			),
+				)),
+			},
+			ClipBanks = new ClipBank[] {
+				new("bank 1"),
+				new("bank 2"),
+				new("bank 3"),
+				new("bank 4"),
+				new("bank 5"),
+				new("bank 6"),
+				new("bank 7"),
+				new("bank 8"),
+			},
 		};
-		ActivePalette = Palettes[2];
 		
-		Patterns = new Pattern[] {
-			new TestPattern(),
-			new HSBDemoPattern(),
-			new EdgeBurstPattern(),
-		};
+		ActivePalette = Palettes[2];
+		SelectedClipBank = ClipBanks[0];
+	}
+
+	static State() {
+		Patterns = AppDomain.CurrentDomain.GetAssemblies()
+			.SelectMany(a => a.GetTypes())
+			.Where(t => t.IsSealed && typeof(Pattern).IsAssignableFrom(t))
+			.Select(t => (Pattern)Activator.CreateInstance(t)!)
+			.ToArray();
 		// init preview
 		foreach (var pattern in Patterns) {
 			pattern.Update();
 		}
 		ActivePattern = Patterns[0];
+	}
 
-		ClipBanks = new ClipBank[] {
-			new("bank 1"),
-			new("bank 2"),
-			new("bank 3"),
-			new("bank 4"),
-			new("bank 5"),
-			new("bank 6"),
-			new("bank 7"),
-			new("bank 8"),
-		};
+	public static void SaveProject() {
+		project.Save(ProjectFile);
+	}
+
+	public static void LoadProject() {
+		project = Project.Load(ProjectFile);
 		SelectedClipBank = ClipBanks[0];
 	}
 	
@@ -235,40 +264,77 @@ static class State {
 		RGB[,] outputs = outputBuffer;
 		HSB[,] patternPixels = ActivePattern.pixels;
 		float hueOffset = Macro.hue_offset.Value;
-		var gradient = ActivePalette?.Gradient;
+		var gradient = ActivePalette?.gradient;
 
-		for (var y = 0; y < BufferWidth; y++) {
-			for (var x = 0; x < BufferWidth; x++) {
-				HSB color = patternPixels[y, x];
-				color.h = MathF.Abs(color.h + hueOffset) % 1f;
-				if (gradient != null) {
-					color = gradient.MapColor(color);
-				}
-				outputs[y, x] = color.ToRGB();
+		for (var y = 0; y < BufferWidth; y++)
+		for (var x = 0; x < BufferWidth; x++) {
+			HSB color = patternPixels[y, x];
+			color.h = MathF.Abs(color.h + hueOffset) % 1f;
+			if (gradient != null) {
+				color = gradient.MapColor(color);
 			}
+			outputs[y, x] = color.ToRGB();
 		}
 	}
 }
 
-interface ClipContents {}
+interface ClipContents {
+	string Id { get; }
+}
+
+enum ClipType {
+	Empty = 0,
+	Palette = 1,
+	Pattern = 2,
+}
 
 class Clip {
-	public ClipContents? contents;
+	[JsonInclude] public ClipType Type { get; set; }
+	[JsonInclude] public string? ContentsId { get; set; }
 
-	public bool HasContents => this.contents != null;
+	ClipContents? contents;
+	[JsonIgnore] public ClipContents? Contents {
+		get => this.contents;
+		set {
+			this.contents = value;
+			this.Type = this.contents switch {
+				null    => ClipType.Empty,
+				Palette => ClipType.Palette,
+				Pattern => ClipType.Pattern,
+				_       => throw new ArgumentOutOfRangeException(),
+			};
+			this.ContentsId = value?.Id;
+		}
+	}
 
-	public bool IsActive => this.contents switch {
+
+	public bool HasContents => this.Contents != null;
+
+	public bool IsActive => this.Contents switch {
 		null            => false,
 		Palette palette => State.ActivePalette == palette,
 		Pattern pattern => State.ActivePattern == pattern,
 		_               => throw new ArgumentOutOfRangeException(),
 	};
 
+	internal void LoadContents(Project project) {
+		switch (this.Type) {
+			case ClipType.Empty: break;
+			case ClipType.Palette:
+				this.Contents = project.Palettes.First(p => p.Id == this.ContentsId);
+				break;
+			case ClipType.Pattern:
+				this.Contents = State.Patterns.First(p => p.Id == this.ContentsId);
+				break;
+			default: throw new ArgumentOutOfRangeException();
+		}
+	}
+
 	public void Activate() {
-		if (this.contents is null)
+		if (this.Contents is null)
 			return;
 
-		switch (this.contents) {
+		switch (this.Contents) {
 			case Palette palette:
 				State.ActivePalette = palette;
 				break;
@@ -284,17 +350,30 @@ sealed class ClipBank {
 	public const int NumCols = 8;
 	public const int NumRows = 8;
 
-	public string name;
-	public readonly Clip[,] clips;
+	[JsonInclude] public string name;
+	[JsonInclude] public readonly Clip[][] clips;
 
 	public ClipBank(string name) {
 		this.name = name;
 		
-		this.clips = new Clip[NumRows, NumCols];
+		this.clips = new Clip[NumRows][];
 		for (var y = 0; y < NumRows; y++) {
+			this.clips[y] = new Clip[NumCols];
 			for (var x = 0; x < NumCols; x++) {
-				this.clips[y, x] = new Clip();
+				this.clips[y][x] = new Clip();
 			}
 		}
+	}
+
+	[JsonConstructor]
+	public ClipBank(string name, Clip[][] clips) {
+		this.name = name;
+		
+		int rows = clips.Length;
+		int cols = clips[0].Length;
+		if (rows != NumRows || cols != NumCols) {
+			throw new Exception($"Invalid clips dimensions. rows={rows}, cols={cols}");
+		}
+		this.clips = clips;
 	}
 }

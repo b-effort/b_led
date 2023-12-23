@@ -43,15 +43,8 @@ sealed class PreviewWindow : IDisposable {
 	}
 }
 
-sealed class PalettesWindow : IDisposable {
+sealed class PalettesWindow {
 	readonly GradientEditState editState = new();
-
-	~PalettesWindow() => this.Dispose();
-
-	public void Dispose() {
-		// todo: might still need
-		GC.SuppressFinalize(this);
-	}
 
 	public unsafe void Show() {
 		SetNextWindowSize(em(24, 12), ImGuiCond.FirstUseEver);
@@ -59,7 +52,7 @@ sealed class PalettesWindow : IDisposable {
 		{
 			var currentPalette = State.ActivePalette;
 			if (currentPalette != null)
-				GradientEdit("current_palette", currentPalette.Preview, this.editState);
+				GradientEdit("current_palette", currentPalette.preview, this.editState);
 			
 			SeparatorText("all palettes");
 			PushStyleColor(ImGuiCol.FrameBg, Vector4.Zero); 
@@ -76,7 +69,7 @@ sealed class PalettesWindow : IDisposable {
 					if (isSelected) {
 						PushStyleColor(ImGuiCol.Button, GetColorU32(ImGuiCol.ButtonActive));
 					}
-					if (ImageButton($"##palette_{i}", palette.Preview.TextureId, barSize)) {
+					if (ImageButton($"##palette_{i}", palette.preview.TextureId, barSize)) {
 						State.ActivePalette = palette; 
 					}
 					if (isSelected) {
@@ -90,7 +83,7 @@ sealed class PalettesWindow : IDisposable {
 					if (BeginDragDropSource()) {
 						SetDragDropPayload(DragDropType.Palette, new nint(&i), sizeof(int));
 						Text(palette.name);
-						Image(palette.Preview.TextureId, vec2(width, em(1)));
+						Image(palette.preview.TextureId, vec2(width, em(1)));
 						EndDragDropSource();
 					}
 				}
@@ -190,6 +183,10 @@ sealed class ClipsWindow {
 			var drawList = GetWindowDrawList();
 			
 			var clipBank = State.SelectedClipBank;
+			if (clipBank is null) {
+				return;
+			}
+			
 			var clips = clipBank.clips;
 			const int numCols = ClipBank.NumCols;
 			const int numRows = ClipBank.NumRows;
@@ -208,21 +205,17 @@ sealed class ClipsWindow {
 						TableSetColumnIndex(col);
 						var id = row * numCols + col;
 						PushID(id);
-						var clip = clips[row, col];
+						var clip = clips[row][col];
 
 						var origin = GetCursorScreenPos();
 						if (clip.HasContents) {
-							switch (clip.contents) {
+							switch (clip.Contents) {
 								case Palette palette:
-								{
-									drawList.AddImage(palette.Preview.TextureId, origin, origin + clipSize);
+									drawList.AddImage(palette.preview.TextureId, origin, origin + clipSize);
 									break;
-								}
 								case Pattern pattern:
-								{
 									drawList.AddImage(pattern.TextureId, origin, origin + clipSize);
 									break;
-								}
 								default: throw new ArgumentOutOfRangeException();
 							}
 						}
@@ -245,11 +238,11 @@ sealed class ClipsWindow {
 								if (payload.IsDataType(DragDropType.Pattern)) {
 									int patternIndex = *(int*)payload.Data;
 									Pattern pattern = State.Patterns[patternIndex];
-									clip.contents = pattern;
+									clip.Contents = pattern;
 								} else if (payload.IsDataType(DragDropType.Palette)) {
 									int paletteIndex = *(int*)payload.Data;
 									Palette palette = State.Palettes[paletteIndex];
-									clip.contents = palette;
+									clip.Contents = palette;
 								}
 							}
 							EndDragDropTarget();
