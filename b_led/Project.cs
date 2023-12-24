@@ -16,8 +16,17 @@ sealed partial class ProjectSerializerContext : JsonSerializerContext { }
 sealed class Project {
 	public const string FileExt = "blep";
 	
-	public List<Palette> Palettes { get; init; } = new();
-	public ClipBank[] ClipBanks { get; init; } = new ClipBank[8];
+	public List<Palette> Palettes { get; set; } = new();
+	public ClipBank[] ClipBanks { get; set; } = new ClipBank[8] {
+		new("bank 1"),
+		new("bank 2"),
+		new("bank 3"),
+		new("bank 4"),
+		new("bank 5"),
+		new("bank 6"),
+		new("bank 7"),
+		new("bank 8"),
+	};
 
 	public static Project Load(string filePath) {
 		string json = File.ReadAllText(filePath);

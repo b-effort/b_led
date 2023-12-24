@@ -16,8 +16,8 @@ using b_effort.b_led;
 /*
 
 # Runway
-- clip launching
-- project files
+- sequences
+- gather config constants
 
 
 # Mapping
@@ -51,6 +51,8 @@ ImGui.SetColorEditOptions(
 #endregion
 
 #region app setup
+
+State.LoadProject();
 
 using var previewWindow = new PreviewWindow();
 var palettesWindow = new PalettesWindow();
@@ -102,7 +104,7 @@ return;
 
 void Update(float deltaTime) {
 	Push2.Update();
-	Metronome.Tick();
+	Metronome.Tickle(deltaTime);
 	State.Update();
 
 	FixtureServer.Update(deltaTime);
@@ -194,7 +196,7 @@ static class State {
 	public static Pattern? ActivePattern { get; set; }
 
 	public static ClipBank[] ClipBanks => project.ClipBanks;
-	public static ClipBank? SelectedClipBank { get; set; }
+	public static ClipBank? SelectedClipBank { get; set; } = ClipBanks[0];
 
 	public static void LoadDemoProject() {
 		project = new Project {
@@ -212,16 +214,6 @@ static class State {
 						new(1f, hsb(320 / 360f)),
 					}
 				)),
-			},
-			ClipBanks = new ClipBank[] {
-				new("bank 1"),
-				new("bank 2"),
-				new("bank 3"),
-				new("bank 4"),
-				new("bank 5"),
-				new("bank 6"),
-				new("bank 7"),
-				new("bank 8"),
 			},
 		};
 		

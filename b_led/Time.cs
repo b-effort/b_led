@@ -25,6 +25,8 @@ record struct Tempo(float bpm) {
 }
 
 readonly record struct Phase(float value) {
+	public static readonly Phase Zero = (Phase)0f;
+	
 	public readonly float value = value % 1;
 
 	public static explicit operator Phase(float value) => new(value);
@@ -32,40 +34,41 @@ readonly record struct Phase(float value) {
 }
 
 static class Metronome {
-	public static readonly Stopwatch timer = Stopwatch.StartNew();
-
 	public static Tempo tempo = 128;
 	public static float speed = 1f;
-	static float beatPhaseLast = 0f;
+	
+	static float tLast;
+	static Phase beatPhaseLast;
 
-	public static TimeSpan Elapsed => timer.Elapsed;
 	public static float T { get; private set; }
-	public static float TLive => ((float)Elapsed.TotalSeconds - DownbeatPhase) * tempo.BeatsPerSecond * speed;
 	public static float TDelta { get; private set; }
-	public static float TLast { get; private set; }
 	public static float TLastBeat { get; private set; }
 
-	public static bool IsOnBeat { get; private set; }
 	public static Phase DownbeatPhase { get; private set; }
-	public static Phase BeatPhase => (Phase)T;
+	public static Phase BeatPhase => (Phase)(T - DownbeatPhase);
+	public static bool IsOnBeat => BeatPhase < beatPhaseLast;
 	public static float BeatPulse => IsOnBeat ? 1f : 0f;
 
-	public static void Tick() {
-		T = TLive;
-		TDelta = T - TLast;
-		TLast = T;
-
-		IsOnBeat = BeatPhase < beatPhaseLast;
+	// happy little typos
+	public static void Tickle(float deltaTime) {
+		tLast = T;
 		beatPhaseLast = BeatPhase;
+		
+		T += deltaTime * tempo.BeatsPerSecond * speed;
+		TDelta = T - tLast;
+		
+		if (setDownbeatNextTick) {
+			DownbeatPhase = (Phase)T;
+			setDownbeatNextTick = false;
+		}
 		if (IsOnBeat) {
 			TLastBeat = T;
 		}
 	}
 
-	public static void SetDownbeat() {
-		DownbeatPhase = BeatPhase;
-		Tick();
-	}
+	static bool setDownbeatNextTick = false;
+
+	public static void SetDownbeat() => setDownbeatNextTick = true;
 
 	public static float Interval(float beats) => T % beats / beats;
 
