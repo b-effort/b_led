@@ -1,8 +1,9 @@
+using System.Runtime.Serialization;
 using System.Text.Json.Serialization;
 
 namespace b_effort.b_led;
 
-static class Color {
+public static class Color {
 	public static HSB hsb(float h, float s = 1f, float b = 1f) {
 		if (h != 1f) {
 			h %= 1f;
@@ -31,10 +32,11 @@ static class Color {
 		public static explicit operator rlColor(RGB @this) => new(@this.r, @this.g, @this.b, @this.a);
 	}
 
+	[DataContract]
 	public record struct HSB(float h, float s, float b) {
-		[JsonInclude] public float h = h;
-		[JsonInclude] public float s = s;
-		[JsonInclude] public float b = b;
+		[DataMember] public float h = h;
+		[DataMember] public float s = s;
+		[DataMember] public float b = b;
 
 		[Impl(Inline)] public RGB ToRGB(float a = 1) {
 			if (this.s == 0) {
@@ -161,10 +163,12 @@ static class Color {
 	}
 }
 
-sealed class Gradient {
+[DataContract]
+public sealed class Gradient {
+	[DataContract]
 	public sealed record Point(float pos, HSB color) : IComparable<Point> {
-		[JsonInclude] public float pos = pos;
-		[JsonInclude] public HSB color = color;
+		[DataMember] public float pos = pos;
+		[DataMember] public HSB color = color;
 
 		public int CompareTo(Point? other) => other is null ? 1 : this.pos.CompareTo(other.pos);
 
@@ -172,7 +176,7 @@ sealed class Gradient {
 	}
 
 	readonly List<Point> points;
-	[JsonInclude] public IReadOnlyList<Point> Points => this.points;
+	[DataMember] public IReadOnlyList<Point> Points => this.points;
 
 	public Gradient() : this(
 		new List<Point> {
@@ -236,6 +240,7 @@ sealed class Gradient {
 	}
 
 	public bool RemoveAt(int i) {
+		// don't allow first or last point to be removed
 		if (i <= 0 || this.points.Count - 1 <= i)
 			return false;
 		
@@ -281,11 +286,12 @@ sealed class GradientPreview : IDisposable {
 
 }
 
+[DataContract]
 sealed class Palette : ClipContents {
-	[JsonInclude] public string Id { get; }
+	[DataMember] public string Id { get; }
 
-	[JsonInclude] public string name;
-	[JsonInclude] public readonly Gradient gradient;
+	[DataMember] public string name;
+	[DataMember] public readonly Gradient gradient;
 	
 	public readonly GradientPreview preview;
 

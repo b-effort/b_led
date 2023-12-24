@@ -1,4 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
+using System.Runtime.Serialization;
 using System.Text.Json.Serialization;
 using JetBrains.Annotations;
 
@@ -28,7 +29,7 @@ static class PatternScript {
 	}
 }
 
-sealed class Macro {
+public sealed class Macro {
 	float value;
 	public float Value {
 		[Impl(Inline)] get => this.value;
@@ -52,7 +53,15 @@ sealed class Macro {
 }
 
 [UsedImplicitly(ImplicitUseKindFlags.InstantiatedNoFixedConstructorSignature, ImplicitUseTargetFlags.WithInheritors)]
-abstract class Pattern : ClipContents, IDisposable {
+public abstract class Pattern : ClipContents, IDisposable {
+	public static readonly Pattern[] All = AppDomain.CurrentDomain.GetAssemblies()
+		.SelectMany(a => a.GetTypes())
+		.Where(t => t.IsSealed && typeof(Pattern).IsAssignableFrom(t))
+		.Select(t => (Pattern)Activator.CreateInstance(t)!)
+		.ToArray();
+
+	public static Pattern FromId(string id) => All.First(p => p.Id == id);
+	
 	public string Id => this.name;
 
 	public readonly string name;
@@ -112,20 +121,58 @@ abstract class Pattern : ClipContents, IDisposable {
 	protected abstract HSB Render(int i, float x, float y);
 }
 
-sealed class Sequence : ClipContents {
-	[JsonInclude] public string Id { get; }
+[DataContract]
+public sealed class Sequence : ClipContents {
+	[DataContract]
+	public sealed class Slot {
+		[DataMember] public string? PatternId {
+			get => this.pattern?.Id;
+			init {
+				if (value != null)
+					this.pattern = Pattern.FromId(value);
+			}
+		}
 
-	[JsonInclude] public string name;
+		public Pattern? pattern;
+
+		public Slot()
+			: this(patternId: null) { }
+		
+		[JsonConstructor]
+		public Slot(string? patternId) {
+			this.PatternId = patternId;
+		}
+	}
+	
+	[DataMember] public string Id { get; }
+	[DataMember] public string name;
+	
+	readonly List<Slot> slots;
+	[DataMember] public IReadOnlyList<Slot> Slots => this.slots;
 
 	public Sequence(string name = "new sequence")
 		: this(
 			id: Guid.NewGuid().ToString(),
-			name
+			name,
+			slots: Enumerable.Range(0, 8).Select(_ => new Slot()).ToList()
 		) { }
 
 	[JsonConstructor]
-	public Sequence(string id, string name) {
+	public Sequence(string id, string name, IReadOnlyList<Slot> slots) {
 		this.Id = id;
 		this.name = name;
+		this.slots = slots.ToList();
+	}
+
+	public void Add() {
+		this.slots.Add(new Slot());
+	}
+
+	public bool RemoveAt(int i) {
+		if (i < 0 || this.slots.Count <= i)
+			return false;
+		
+		this.slots.RemoveAt(i);
+		return true;
 	}
 }

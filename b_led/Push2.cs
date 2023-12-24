@@ -352,7 +352,7 @@ static class Push2 {
 	static void UpdateButtonLEDs() {
 		var outputs = buttonsOutputs;
 		var outputsLast = buttonsLastOutputs;
-		foreach ((Button button, int velocity) in outputs) {
+		foreach ((Button button, Velocity velocity) in outputs) {
 			if (velocity == outputsLast.GetValueOrDefault(button))
 				continue;
 

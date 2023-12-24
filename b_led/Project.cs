@@ -1,23 +1,24 @@
 using System.IO;
+using System.Runtime.Serialization;
 using System.Text.Json;
-using System.Text.Json.Serialization;
+using System.Text.Json.Serialization.Metadata;
 
 namespace b_effort.b_led;
 
-[JsonSourceGenerationOptions(
-	GenerationMode = JsonSourceGenerationMode.Metadata,
-	IgnoreReadOnlyProperties = true,
-	PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase,
-	WriteIndented = true
-)]
-[JsonSerializable(typeof(Project))]
-sealed partial class ProjectSerializerContext : JsonSerializerContext { }
-
+[DataContract]
 sealed class Project {
+	static readonly JsonSerializerOptions serializerOptions = new() {
+		TypeInfoResolver = new DataContractJsonTypeInfoResolver {
+			PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+		},
+		WriteIndented = true,
+	};
+	
 	public const string FileExt = "blep";
 	
-	public List<Palette> Palettes { get; set; } = new();
-	public ClipBank[] ClipBanks { get; set; } = new ClipBank[8] {
+	[DataMember] public List<Palette> Palettes { get; set; } = new();
+	[DataMember] public List<Sequence> Sequences { get; set; } = new();
+	[DataMember] public ClipBank[] ClipBanks { get; set; } = new ClipBank[8] {
 		new("bank 1"),
 		new("bank 2"),
 		new("bank 3"),
@@ -30,7 +31,7 @@ sealed class Project {
 
 	public static Project Load(string filePath) {
 		string json = File.ReadAllText(filePath);
-		Project? project = JsonSerializer.Deserialize(json, ProjectSerializerContext.Default.Project);
+		Project? project = JsonSerializer.Deserialize<Project>(json, serializerOptions);
 		if (project is null) {
 			throw new Exception($"Failed to load project: {filePath}");
 		}
@@ -45,7 +46,7 @@ sealed class Project {
 	}
 	
 	public void Save(string filePath) {
-		string json = JsonSerializer.Serialize(this, ProjectSerializerContext.Default.Project);
+		string json = JsonSerializer.Serialize(this, serializerOptions);
 		File.WriteAllText(filePath, json);
 		Console.WriteLine($"Project saved: {filePath}");
 	}

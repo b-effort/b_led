@@ -10,6 +10,7 @@ global using rlImGui_cs;
 global using ImGuiNET;
 global using static b_effort.b_led.Color;
 using System.Diagnostics;
+using System.Runtime.Serialization;
 using System.Text.Json.Serialization;
 using b_effort.b_led;
 
@@ -195,10 +196,13 @@ static class State {
 	static Project project = new();
 
 	public static List<Palette> Palettes => project.Palettes;
-	public static Palette? ActivePalette { get; set; }
-	
-	public static Pattern[] Patterns { get; }
-	public static Pattern? ActivePattern { get; set; }
+	public static Palette? ActivePalette { get; set; } = Palettes.FirstOrDefault();
+
+	public static Pattern[] Patterns { get; } = Pattern.All;
+	public static Pattern? ActivePattern { get; set; } = Patterns[0];
+
+	public static List<Sequence> Sequences => project.Sequences;
+	public static Sequence? ActiveSequence { get; set; }
 
 	public static ClipBank[] ClipBanks => project.ClipBanks;
 	public static ClipBank? SelectedClipBank { get; set; } = ClipBanks[0];
@@ -227,16 +231,10 @@ static class State {
 	}
 
 	static State() {
-		Patterns = AppDomain.CurrentDomain.GetAssemblies()
-			.SelectMany(a => a.GetTypes())
-			.Where(t => t.IsSealed && typeof(Pattern).IsAssignableFrom(t))
-			.Select(t => (Pattern)Activator.CreateInstance(t)!)
-			.ToArray();
 		// init preview
 		foreach (var pattern in Patterns) {
 			pattern.Update();
 		}
-		ActivePattern = Patterns[0];
 	}
 
 	public static void SaveProject() {
@@ -245,6 +243,7 @@ static class State {
 
 	public static void LoadProject() {
 		project = Project.Load(ProjectFile);
+		ActivePalette = Palettes.FirstOrDefault();
 		SelectedClipBank = ClipBanks[0];
 	}
 	
@@ -285,12 +284,13 @@ enum ClipType {
 	Pattern = 2,
 }
 
+[DataContract]
 sealed class Clip {
-	[JsonInclude] public ClipType Type { get; set; }
-	[JsonInclude] public string? ContentsId { get; set; }
+	[DataMember] public ClipType Type { get; set; }
+	[DataMember] public string? ContentsId { get; set; }
 
 	ClipContents? contents;
-	[JsonIgnore] public ClipContents? Contents {
+	public ClipContents? Contents {
 		get => this.contents;
 		set {
 			this.contents = value;
@@ -343,12 +343,13 @@ sealed class Clip {
 	}
 }
 
+[DataContract]
 sealed class ClipBank {
 	public const int NumCols = 8;
 	public const int NumRows = 8;
 
-	[JsonInclude] public string name;
-	[JsonInclude] public readonly Clip[][] clips;
+	[DataMember] public string name;
+	[DataMember] public readonly Clip[][] clips;
 
 	public ClipBank(string name) {
 		this.name = name;
