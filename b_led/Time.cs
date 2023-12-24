@@ -40,7 +40,7 @@ static class Metronome {
 	static float tLast;
 	static Phase beatPhaseLast;
 
-	public static float T { get; private set; }
+	public static float T { [Impl(Inline)] get; private set; }
 	public static float TDelta { get; private set; }
 	public static float TLastBeat { get; private set; }
 

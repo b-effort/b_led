@@ -42,7 +42,7 @@ static class BMath {
 }
 
 static class PatternScript {
-	public static float t => Metronome.T;
+	public static float t { [Impl(Inline)] get => Metronome.T; }
 	public static float dt => Metronome.TDelta;
 	public static float interval(float beats) => Metronome.Interval(beats);
 
@@ -65,9 +65,7 @@ static class PatternScript {
 	}
 }
 
-#region macros
-
-public sealed class Macro {
+sealed class Macro {
 	float value;
 	public float Value {
 		[Impl(Inline)] get => this.value;
@@ -89,8 +87,6 @@ public sealed class Macro {
 	public static IReadOnlyList<Macro> Global => global
 		??= new[] { scaleX, scaleY, hue_offset };
 }
-
-#endregion
 
 [UsedImplicitly(ImplicitUseKindFlags.InstantiatedNoFixedConstructorSignature, ImplicitUseTargetFlags.WithInheritors)]
 abstract class Pattern : ClipContents, IDisposable {
