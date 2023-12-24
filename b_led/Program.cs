@@ -288,7 +288,7 @@ enum ClipType {
 	Pattern = 2,
 }
 
-class Clip {
+sealed class Clip {
 	[JsonInclude] public ClipType Type { get; set; }
 	[JsonInclude] public string? ContentsId { get; set; }
 
