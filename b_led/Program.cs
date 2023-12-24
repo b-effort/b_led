@@ -52,7 +52,12 @@ ImGui.SetColorEditOptions(
 
 #region app setup
 
-State.LoadProject();
+try {
+	State.LoadProject();
+} catch (Exception e) {
+	Console.WriteLine(e);
+	State.LoadDemoProject();
+}
 
 using var previewWindow = new PreviewWindow();
 var palettesWindow = new PalettesWindow();

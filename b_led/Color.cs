@@ -282,17 +282,23 @@ sealed class GradientPreview : IDisposable {
 }
 
 sealed class Palette : ClipContents {
-	public string Id => this.name;
+	[JsonInclude] public string Id { get; }
 
 	[JsonInclude] public string name;
 	[JsonInclude] public readonly Gradient gradient;
 	
 	public readonly GradientPreview preview;
-	
-	public Palette(string name) : this(name, new Gradient()) { }
+
+	public Palette(string name = "new palette", Gradient? gradient = null)
+		: this(
+			id: Guid.NewGuid().ToString(),
+			name,
+			gradient ?? new Gradient()
+		) { }
 
 	[JsonConstructor]
-	public Palette(string name, Gradient gradient) {
+	public Palette(string id, string name, Gradient gradient) {
+		this.Id = id;
 		this.name = name;
 		this.gradient = gradient;
 		this.preview = new GradientPreview(gradient, 128);

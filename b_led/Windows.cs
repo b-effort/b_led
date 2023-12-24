@@ -174,6 +174,19 @@ sealed class PatternsWindow {
 	}
 }
 
+sealed class SequencesWindow {
+	public unsafe void Show() {
+		SetNextWindowSize(em(24, 12), ImGuiCond.FirstUseEver);
+		Begin("sequences");
+		{
+			var drawList = GetWindowDrawList();
+
+			
+		}
+		End();
+	}
+}
+
 sealed class ClipsWindow {
 	public unsafe void Show() {
 		SetNextWindowSize(em(24, 12), ImGuiCond.FirstUseEver);
@@ -182,10 +195,9 @@ sealed class ClipsWindow {
 			var drawList = GetWindowDrawList();
 			
 			var clipBank = State.SelectedClipBank;
-			if (clipBank is null) {
+			if (clipBank is null)
 				return;
-			}
-			
+
 			var clips = clipBank.clips;
 			const int numCols = ClipBank.NumCols;
 			const int numRows = ClipBank.NumRows;

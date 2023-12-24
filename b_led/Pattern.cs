@@ -1,4 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
+using System.Text.Json.Serialization;
 using JetBrains.Annotations;
 
 namespace b_effort.b_led;
@@ -65,13 +66,12 @@ abstract class Pattern : ClipContents, IDisposable {
 	public IReadOnlyList<Macro> Macros => this.macros
 		??= new[] { this.m1, this.m2, this.m3, this.m4 };
 
-	public const int Width = State.BufferWidth;
-	public const int Height = State.BufferWidth;
+	const int Width = State.BufferWidth;
+	const int Height = State.BufferWidth;
 	public readonly HSB[,] pixels;
 
 	readonly Texture2D texture;
 	readonly rlColor[] texturePixels;
-
 	public nint TextureId => (nint)this.texture.id;
 
 	protected Pattern() {
@@ -110,4 +110,22 @@ abstract class Pattern : ClipContents, IDisposable {
 
 	protected virtual void PreRender() { }
 	protected abstract HSB Render(int i, float x, float y);
+}
+
+sealed class Sequence : ClipContents {
+	[JsonInclude] public string Id { get; }
+
+	[JsonInclude] public string name;
+
+	public Sequence(string name = "new sequence")
+		: this(
+			id: Guid.NewGuid().ToString(),
+			name
+		) { }
+
+	[JsonConstructor]
+	public Sequence(string id, string name) {
+		this.Id = id;
+		this.name = name;
+	}
 }
