@@ -78,20 +78,20 @@ static class FixtureServer {
 		// ReSharper disable once FunctionNeverReturns
 	}
 	
-	const int SendBufferSize = State.BufferWidth * State.BufferWidth * 3 + 1;
+	const int SendBufferSize = Greg.BufferWidth * Greg.BufferWidth * 3 + 1;
 	static readonly byte[] sendBuffer = new byte[SendBufferSize];
 
 	static async Task LoopSend() {
 		while (httpListener.IsListening) {
 			sendFrameEvent.WaitOne();
 
-			RGB[,] inputs = State.outputBuffer;
+			RGB[,] inputs = Greg.outputBuffer;
 			sendBuffer[0] = (byte)MessageType.SetLEDs;
 
-			for (var y = 0; y < State.BufferWidth; y++) {
-				for (var x = 0; x < State.BufferWidth; x++) {
+			for (var y = 0; y < Greg.BufferWidth; y++) {
+				for (var x = 0; x < Greg.BufferWidth; x++) {
 					var color = inputs[y, x];
-					var i = (y * State.BufferWidth + x) * 3 + 1;
+					var i = (y * Greg.BufferWidth + x) * 3 + 1;
 					sendBuffer[i + 0] = color.r;
 					sendBuffer[i + 1] = color.g;
 					sendBuffer[i + 2] = color.b;

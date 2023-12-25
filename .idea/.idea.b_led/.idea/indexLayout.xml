@@ -4,6 +4,7 @@
     <attachedFolders />
     <explicitIncludes />
     <explicitExcludes>
+      <Path>b_led/Misc/JetBrainsAnnotations.cs</Path>
       <Path>modules/rlImGui-cs/rlImGui</Path>
     </explicitExcludes>
   </component>

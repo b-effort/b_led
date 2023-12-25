@@ -54,10 +54,10 @@ ImGui.SetColorEditOptions(
 #region app setup
 
 try {
-	State.LoadProject();
+	Greg.LoadProject();
 } catch (Exception e) {
 	Console.WriteLine(e);
-	State.LoadDemoProject();
+	Greg.LoadDemoProject();
 }
 
 using var previewWindow = new PreviewWindow();
@@ -111,7 +111,7 @@ return;
 void Update(float deltaTime) {
 	Push2.Update();
 	Metronome.Tickle(deltaTime);
-	State.Update();
+	Greg.Update();
 
 	FixtureServer.Update(deltaTime);
 }
@@ -122,13 +122,13 @@ void DrawUI() {
 	if (ImGui.BeginMainMenuBar()) {
 		if (ImGui.BeginMenu("File")) {
 			if (ImGui.MenuItem("Save")) {
-				State.SaveProject();
+				Greg.SaveProject();
 			}
 			if (ImGui.MenuItem("Load")) {
-				State.LoadProject();
+				Greg.LoadProject();
 			}
 			if (ImGui.MenuItem("Load demo project")) {
-				State.LoadDemoProject();
+				Greg.LoadDemoProject();
 			}
 		}
 	}
@@ -188,7 +188,9 @@ static class DragDropType {
 	public const string Pattern = "pattern";
 }
 
-static class State {
+// greg is secretary of state
+// greg is a beast you can't tame
+static class Greg {
 	const string ProjectFile = $"test.{Project.FileExt}";
 
 	public const int BufferWidth = 64;
@@ -230,7 +232,7 @@ static class State {
 		SelectedClipBank = ClipBanks[0];
 	}
 
-	static State() {
+	static Greg() {
 		// init preview
 		foreach (var pattern in Patterns) {
 			pattern.Update();
@@ -276,6 +278,7 @@ static class State {
 
 interface ClipContents {
 	string Id { get; }
+	// todo: expose preview texture id
 }
 
 enum ClipType {
@@ -309,8 +312,8 @@ sealed class Clip {
 
 	public bool IsActive => this.Contents switch {
 		null            => false,
-		Palette palette => State.ActivePalette == palette,
-		Pattern pattern => State.ActivePattern == pattern,
+		Palette palette => Greg.ActivePalette == palette,
+		Pattern pattern => Greg.ActivePattern == pattern,
 		_               => throw new ArgumentOutOfRangeException(),
 	};
 
@@ -321,7 +324,7 @@ sealed class Clip {
 				this.Contents = project.Palettes.First(p => p.Id == this.contentsId);
 				break;
 			case ClipType.Pattern:
-				this.Contents = State.Patterns.First(p => p.Id == this.contentsId);
+				this.Contents = Greg.Patterns.First(p => p.Id == this.contentsId);
 				break;
 			default: throw new ArgumentOutOfRangeException();
 		}
@@ -333,10 +336,10 @@ sealed class Clip {
 
 		switch (this.Contents) {
 			case Palette palette:
-				State.ActivePalette = palette;
+				Greg.ActivePalette = palette;
 				break;
 			case Pattern pattern:
-				State.ActivePattern = pattern;
+				Greg.ActivePattern = pattern;
 				break;
 			default: throw new ArgumentOutOfRangeException();
 		}

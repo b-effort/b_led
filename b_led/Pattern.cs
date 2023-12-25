@@ -29,7 +29,7 @@ static class PatternScript {
 	}
 }
 
-public sealed class Macro {
+sealed class Macro {
 	float value;
 	public float Value {
 		[Impl(Inline)] get => this.value;
@@ -53,7 +53,7 @@ public sealed class Macro {
 }
 
 [UsedImplicitly(ImplicitUseKindFlags.InstantiatedNoFixedConstructorSignature, ImplicitUseTargetFlags.WithInheritors)]
-public abstract class Pattern : ClipContents, IDisposable {
+abstract class Pattern : ClipContents, IDisposable {
 	public static readonly Pattern[] All = AppDomain.CurrentDomain.GetAssemblies()
 		.SelectMany(a => a.GetTypes())
 		.Where(t => t.IsSealed && typeof(Pattern).IsAssignableFrom(t))
@@ -75,8 +75,8 @@ public abstract class Pattern : ClipContents, IDisposable {
 	public IReadOnlyList<Macro> Macros => this.macros
 		??= new[] { this.m1, this.m2, this.m3, this.m4 };
 
-	const int Width = State.BufferWidth;
-	const int Height = State.BufferWidth;
+	const int Width = Greg.BufferWidth;
+	const int Height = Greg.BufferWidth;
 	public readonly HSB[,] pixels;
 
 	readonly Texture2D texture;
@@ -122,7 +122,7 @@ public abstract class Pattern : ClipContents, IDisposable {
 }
 
 [DataContract]
-public sealed class Sequence : ClipContents {
+sealed class Sequence : ClipContents {
 	[DataContract]
 	public sealed class Slot {
 		[DataMember] public string? PatternId {

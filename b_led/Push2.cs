@@ -94,7 +94,7 @@ static class Push2 {
 		MacroEncoder(Encoder.Device_2, Macro.scaleY);
 		MacroEncoder(Encoder.Device_3, Macro.hue_offset);
 
-		var pattern = State.ActivePattern;
+		var pattern = Greg.ActivePattern;
 		if (pattern != null) {
 			MacroEncoder(Encoder.Device_5, pattern.m1);
 			MacroEncoder(Encoder.Device_6, pattern.m2);
@@ -103,21 +103,21 @@ static class Push2 {
 		}
 
 
-		var palettes = State.Palettes;
+		var palettes = Greg.Palettes;
 		float paletteAnim = PatternScript.beat.triangle(8);
 		for (var i = 0; i < palettes.Count; i++) {
 			var pad = new Pad(i % 8, i / 8);
 			var palette = palettes[i];
 			var color = palette.gradient.ColorAt(paletteAnim);
 			
-			if (palette == State.ActivePalette) {
+			if (palette == Greg.ActivePalette) {
 				color.b *= PatternScript.beat.triangle(1, 0.5f);
 			}
 			
 			SetPadColor(pad, color);
 			
 			if (WasPressed(pad)) {
-				State.ActivePalette = palette;
+				Greg.ActivePalette = palette;
 			}
 		}
 

@@ -3,7 +3,7 @@ using System.Text.Json.Serialization;
 
 namespace b_effort.b_led;
 
-public static class Color {
+static class Color {
 	public static HSB hsb(float h, float s = 1f, float b = 1f) {
 		if (h != 1f) {
 			h %= 1f;
@@ -164,7 +164,7 @@ public static class Color {
 }
 
 [DataContract]
-public sealed class Gradient {
+sealed class Gradient {
 	[DataContract]
 	public sealed record Point(float pos, HSB color) : IComparable<Point> {
 		[DataMember] public float pos = pos;

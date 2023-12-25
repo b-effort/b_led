@@ -5,7 +5,7 @@ using static b_effort.b_led.ImGuiShorthand;
 namespace b_effort.b_led;
 
 sealed class PreviewWindow : IDisposable {
-	const int Resolution = State.BufferWidth;
+	const int Resolution = Greg.BufferWidth;
 
 	readonly Image image;
 	readonly Texture2D texture;
@@ -25,7 +25,7 @@ sealed class PreviewWindow : IDisposable {
 
 	public unsafe void Show() {
 		var pixels = (rlColor*)this.image.data;
-		var buffer = State.outputBuffer;
+		var buffer = Greg.outputBuffer;
 		for (var y = 0; y < Resolution; y++) {
 			for (var x = 0; x < Resolution; x++) {
 				pixels[y * Resolution + x] = (rlColor)buffer[y, x];
@@ -49,7 +49,7 @@ sealed class PalettesWindow {
 		SetNextWindowSize(em(24, 12), ImGuiCond.FirstUseEver);
 		Begin("palettes");
 		{
-			var currentPalette = State.ActivePalette;
+			var currentPalette = Greg.ActivePalette;
 			if (currentPalette != null)
 				GradientEdit("current_palette", currentPalette.preview, this.editState);
 			
@@ -60,7 +60,7 @@ sealed class PalettesWindow {
 				float width = GetContentRegionAvail().X - Style.FramePadding.X * 2;
 				Vector2 barSize = vec2(width, barHeight);
 
-				var palettes = State.Palettes;
+				var palettes = Greg.Palettes;
 				for (var i = 0; i < palettes.Count; i++) {
 					var palette = palettes[i];
 					var isSelected = palette == currentPalette;
@@ -69,7 +69,7 @@ sealed class PalettesWindow {
 						PushStyleColor(ImGuiCol.Button, GetColorU32(ImGuiCol.ButtonActive));
 					}
 					if (ImageButton($"##palette_{i}", palette.preview.TextureId, barSize)) {
-						State.ActivePalette = palette; 
+						Greg.ActivePalette = palette; 
 					}
 					if (isSelected) {
 						PopStyleColor(1);
@@ -102,8 +102,8 @@ sealed class PatternsWindow {
 		{
 			var drawList = GetWindowDrawList();
 			
-			var currentPattern = State.ActivePattern;
-			var patterns = State.Patterns;
+			var currentPattern = Greg.ActivePattern;
+			var patterns = Greg.Patterns;
 
 			Vector2 avail = GetContentRegionAvail();
 			float cellMargin = Style.FramePadding.X * 2;
@@ -146,7 +146,7 @@ sealed class PatternsWindow {
 							);
 
 							if (InvisibleButton(string.Empty, patternSize)) {
-								State.ActivePattern = pattern;
+								Greg.ActivePattern = pattern;
 							}
 							
 							if (IsItemHovered()) {
@@ -194,7 +194,7 @@ sealed class ClipsWindow {
 		{
 			var drawList = GetWindowDrawList();
 			
-			var clipBank = State.SelectedClipBank;
+			var clipBank = Greg.SelectedClipBank;
 			if (clipBank is null)
 				return;
 
@@ -248,11 +248,11 @@ sealed class ClipsWindow {
 							if (payload.NativePtr != (void*)0) {
 								if (payload.IsDataType(DragDropType.Pattern)) {
 									int patternIndex = *(int*)payload.Data;
-									Pattern pattern = State.Patterns[patternIndex];
+									Pattern pattern = Greg.Patterns[patternIndex];
 									clip.Contents = pattern;
 								} else if (payload.IsDataType(DragDropType.Palette)) {
 									int paletteIndex = *(int*)payload.Data;
-									Palette palette = State.Palettes[paletteIndex];
+									Palette palette = Greg.Palettes[paletteIndex];
 									clip.Contents = palette;
 								}
 							}
@@ -311,7 +311,7 @@ sealed class MetronomeWindow {
 }
 
 sealed class MacrosWindow {
-	static Pattern? Pattern => State.ActivePattern;
+	static Pattern? Pattern => Greg.ActivePattern;
 
 	public void Show() {
 		SetNextWindowSize(em(24, 12), ImGuiCond.FirstUseEver);
@@ -390,7 +390,7 @@ sealed class PushWindow {
 }
 
 sealed class FuncPlotterWindow {
-	const int Resolution = State.BufferWidth;
+	const int Resolution = Greg.BufferWidth;
 	public List<(string name, Func<float, float> f)> Funcs { get; init; } = new();
 	readonly float[] points = new float[Resolution];
 
