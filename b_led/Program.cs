@@ -30,18 +30,18 @@ buffers are [y, x] = [y * width + x]
  */
 
 const int FPS = 144;
-const int Width = 1280;
-const int Height = 1280;
+int width = 1280;
+int height = 1280;
 
 #region init
 
 rl.SetConfigFlags(ConfigFlags.FLAG_WINDOW_RESIZABLE);
-rl.InitWindow(Width, Height, "b_led");
+rl.InitWindow(width, height, "b_led");
 rl.SetTargetFPS(FPS);
 
 rlImGui.SetupUserFonts = ImFonts.SetupUserFonts;
 rlImGui.Setup(enableDocking: true);
-ImGui.GetStyle().ScaleAllSizes(1.30f);
+// ImGui.GetStyle().ScaleAllSizes(1.30f);
 
 ImGui.SetColorEditOptions(
 	ImGuiColorEditFlags.NoAlpha
@@ -86,6 +86,11 @@ var deltaTimer = Stopwatch.StartNew();
 float deltaTime = 1f / FPS;
 
 while (!rl.WindowShouldClose()) {
+	if (rl.IsWindowResized()) {
+		width = rl.GetRenderWidth();
+		height = rl.GetRenderHeight();
+	}
+	
 	Update(deltaTime);
 
 	rl.BeginDrawing();
@@ -95,7 +100,7 @@ while (!rl.WindowShouldClose()) {
 		rlImGui.Begin(deltaTime);
 		DrawUI();
 		rlImGui.End();
-		rl.DrawFPS(Width - 84, 4);
+		rl.DrawFPS(width - 84, 4);
 	}
 	rl.EndDrawing();
 	
@@ -139,7 +144,7 @@ void DrawUI() {
 	patternsWindow.Show();
 	metronomeWindow.Show();
 	macrosWindow.Show();
-	funcPlotterWindow.Show();
+	// funcPlotterWindow.Show();
 	pushWindow.Show();
 }
 

@@ -244,17 +244,18 @@ sealed class ClipsWindow {
 						}
 						
 						if (BeginDragDropTarget()) {
-							var payload = AcceptDragDropPayload(null);
+							var payload = AcceptDragDropPayload(DragDropType.Palette);
 							if (payload.NativePtr != (void*)0) {
-								if (payload.IsDataType(DragDropType.Pattern)) {
-									int patternIndex = *(int*)payload.Data;
-									Pattern pattern = Greg.Patterns[patternIndex];
-									clip.Contents = pattern;
-								} else if (payload.IsDataType(DragDropType.Palette)) {
-									int paletteIndex = *(int*)payload.Data;
-									Palette palette = Greg.Palettes[paletteIndex];
-									clip.Contents = palette;
-								}
+								int patternIndex = *(int*)payload.Data;
+								Pattern pattern = Greg.Patterns[patternIndex];
+								clip.Contents = pattern;
+							} else {
+								payload = AcceptDragDropPayload(DragDropType.Pattern);
+							}
+							if (payload.NativePtr != (void*)0) {
+								int paletteIndex = *(int*)payload.Data;
+								Palette palette = Greg.Palettes[paletteIndex];
+								clip.Contents = palette;
 							}
 							EndDragDropTarget();
 						}
@@ -336,8 +337,8 @@ sealed class MacrosWindow {
 						SameLine();
 					}
 				}
+				EndTable();
 			}
-			EndTable();
 		}
 		End();
 	}
@@ -378,7 +379,8 @@ sealed class PushWindow {
 				}
 			}
 
-			AlignTextToFramePadding();
+			SameLine();
+			// AlignTextToFramePadding();
 			var encTempo = Push2.Encoders[Push2.Encoder.Tempo].Value;
 			if (Knob("enc/tempo", ref encTempo)) { }
 			SameLine();
