@@ -1,24 +1,29 @@
 using System.IO;
 using System.Runtime.Serialization;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Text.Json.Serialization.Metadata;
 
 namespace b_effort.b_led;
 
 [DataContract]
 sealed class Project {
+	static readonly JsonNamingPolicy namingPolicy = JsonSnakeCaseNamingPolicy.Default;
 	static readonly JsonSerializerOptions serializerOptions = new() {
+		Converters = {
+			new JsonStringEnumConverter(namingPolicy),
+		},
 		TypeInfoResolver = new DataContractJsonTypeInfoResolver {
-			PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+			PropertyNamingPolicy = namingPolicy,
 		},
 		WriteIndented = true,
 	};
-	
+
 	public const string FileExt = "blep";
-	
-	[DataMember] public List<Palette> Palettes { get; set; } = new();
-	[DataMember] public List<Sequence> Sequences { get; set; } = new();
-	[DataMember] public ClipBank[] ClipBanks { get; set; } = new ClipBank[8] {
+
+	[DataMember] public List<Palette> Palettes { get; private init; } = new();
+	[DataMember] public List<Sequence> Sequences { get; private init; } = new();
+	[DataMember] public ClipBank[] ClipBanks { get; private init; } = new ClipBank[8] {
 		new("bank 1"),
 		new("bank 2"),
 		new("bank 3"),
@@ -44,7 +49,7 @@ sealed class Project {
 		Console.WriteLine($"Project loaded: {filePath}");
 		return project;
 	}
-	
+
 	public void Save(string filePath) {
 		string json = JsonSerializer.Serialize(this, serializerOptions);
 		File.WriteAllText(filePath, json);

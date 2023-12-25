@@ -286,21 +286,21 @@ enum ClipType {
 
 [DataContract]
 sealed class Clip {
-	[DataMember] public ClipType Type { get; set; }
-	[DataMember] public string? ContentsId { get; set; }
+	[DataMember] ClipType type;
+	[DataMember] string? contentsId;
 
 	ClipContents? contents;
 	public ClipContents? Contents {
 		get => this.contents;
 		set {
 			this.contents = value;
-			this.Type = this.contents switch {
+			this.type = this.contents switch {
 				null    => ClipType.Empty,
 				Palette => ClipType.Palette,
 				Pattern => ClipType.Pattern,
 				_       => throw new ArgumentOutOfRangeException(),
 			};
-			this.ContentsId = value?.Id;
+			this.contentsId = value?.Id;
 		}
 	}
 
@@ -315,13 +315,13 @@ sealed class Clip {
 	};
 
 	internal void LoadContents(Project project) {
-		switch (this.Type) {
+		switch (this.type) {
 			case ClipType.Empty: break;
 			case ClipType.Palette:
-				this.Contents = project.Palettes.First(p => p.Id == this.ContentsId);
+				this.Contents = project.Palettes.First(p => p.Id == this.contentsId);
 				break;
 			case ClipType.Pattern:
-				this.Contents = State.Patterns.First(p => p.Id == this.ContentsId);
+				this.Contents = State.Patterns.First(p => p.Id == this.contentsId);
 				break;
 			default: throw new ArgumentOutOfRangeException();
 		}
