@@ -63,6 +63,7 @@ try {
 using var previewWindow = new PreviewWindow();
 var palettesWindow = new PalettesWindow();
 var patternsWindow = new PatternsWindow();
+var sequencesWindow = new SequencesWindow();
 var clipsWindow = new ClipsWindow();
 var metronomeWindow = new MetronomeWindow();
 var macrosWindow = new MacrosWindow();
@@ -141,6 +142,7 @@ void DrawUI() {
 	previewWindow.Show();
 	palettesWindow.Show();
 	clipsWindow.Show();
+	sequencesWindow.Show();
 	patternsWindow.Show();
 	metronomeWindow.Show();
 	macrosWindow.Show();
@@ -252,6 +254,9 @@ static class Greg {
 		project = Project.Load(ProjectFile);
 		ActivePalette = Palettes.FirstOrDefault();
 		SelectedClipBank = ClipBanks[0];
+		
+		
+		ActiveSequence = Sequences.FirstOrDefault();
 	}
 	
 	// public static LEDMapper[] LEDMappers { get; set; } = Array.Empty<LEDMapper>();
@@ -259,13 +264,19 @@ static class Greg {
 	public static readonly RGB[,] outputBuffer = new RGB[BufferWidth, BufferWidth];
 
 	public static void Update() {
-		if (ActivePattern is null)
+		Pattern? pattern = null;
+		var sequence = ActiveSequence;
+		if (sequence != null) {
+			pattern = sequence.ActiveSlot?.pattern;
+		}
+		pattern ??= ActivePattern;
+		if (pattern is null)
 			return;
 
-		ActivePattern.Update();
+		pattern.Update();
 
 		RGB[,] outputs = outputBuffer;
-		HSB[,] patternPixels = ActivePattern.pixels;
+		HSB[,] patternPixels = pattern.pixels;
 		float hueOffset = Macro.hue_offset.Value;
 		var gradient = ActivePalette?.gradient;
 
@@ -287,9 +298,10 @@ interface ClipContents {
 }
 
 enum ClipType {
-	Empty = 0,
-	Palette = 1,
-	Pattern = 2,
+	Empty,
+	Palette,
+	Pattern,
+	Sequence,
 }
 
 [DataContract]
@@ -303,23 +315,24 @@ sealed class Clip {
 		set {
 			this.contents = value;
 			this.type = this.contents switch {
-				null    => ClipType.Empty,
-				Palette => ClipType.Palette,
-				Pattern => ClipType.Pattern,
-				_       => throw new ArgumentOutOfRangeException(),
+				null     => ClipType.Empty,
+				Palette  => ClipType.Palette,
+				Pattern  => ClipType.Pattern,
+				Sequence => ClipType.Sequence,
+				_        => throw new ArgumentOutOfRangeException(),
 			};
 			this.contentsId = value?.Id;
 		}
 	}
 
-
 	public bool HasContents => this.Contents != null;
 
 	public bool IsActive => this.Contents switch {
-		null            => false,
-		Palette palette => Greg.ActivePalette == palette,
-		Pattern pattern => Greg.ActivePattern == pattern,
-		_               => throw new ArgumentOutOfRangeException(),
+		null              => false,
+		Palette palette   => Greg.ActivePalette == palette,
+		Pattern pattern   => Greg.ActivePattern == pattern,
+		Sequence sequence => Greg.ActiveSequence == sequence,
+		_                 => throw new ArgumentOutOfRangeException(),
 	};
 
 	internal void LoadContents(Project project) {

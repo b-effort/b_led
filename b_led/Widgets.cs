@@ -173,11 +173,37 @@ static class Widgets {
 
 #endregion
 
+#region pattern
+
+	public static bool PatternButton(string id, Pattern? pattern, Vector2 size) {
+		var drawList = GetWindowDrawList();
+		var origin = GetCursorScreenPos();
+		
+		if (pattern != null)
+			drawList.AddImage(
+				p_min: origin,
+				p_max: origin + size,
+				user_texture_id: pattern.TextureId
+			);
+		drawList.AddRect(
+			p_min: origin,
+			p_max: origin + size,
+			col: GetColorU32(ImGuiCol.Border),
+			rounding: 0,
+			flags: ImDrawFlags.None,
+			thickness: 3
+		);
+
+		bool changed = InvisibleButton(id, size);
+		
+		return changed;
+	}
+
+#endregion
+	
 #region gradient
 
 	public sealed class GradientEditState {
-		const int Resolution = 32;
-
 		public GradientPreview GradientPreview { get; set; } = null!;
 		Gradient Gradient => this.GradientPreview.gradient;
 		public nint TextureId => this.GradientPreview.TextureId; 
@@ -546,6 +572,62 @@ static class Widgets {
 			drawList, pos + vec2(0, barHeight - halfSize.Y), halfSizeOutline, ImGuiDir.Up, colorOutline
 		);
 		RenderArrowPointingAt(drawList, pos + vec2(0, barHeight - halfSize.Y + 1), halfSize, ImGuiDir.Up, colorArrow);
+	}
+
+#endregion
+
+#region sequence
+
+	public sealed class SequenceEdit {
+		readonly string id;
+		int selectedIndex = 0;
+		
+		public SequenceEdit(string id) {
+			this.id = id;
+		}
+
+		public unsafe bool Render(Sequence sequence) {
+			bool changed = false;
+			
+			PushID(this.id);
+			BeginGroup();
+			{
+				Vector2 avail = GetContentRegionAvail();
+				Vector2 slotSize = em(4, 4);
+
+				for (var i = 0; i < sequence.Slots.Count; i++) {
+					PushID(i);
+					
+					var slot = sequence.Slots[i];
+					var isSelected = i == this.selectedIndex;
+
+					if (isSelected)
+						PushStyleColor(ImGuiCol.Button, GetColorU32(ImGuiCol.ButtonActive));
+					if (PatternButton(string.Empty, slot.pattern, slotSize))
+						this.selectedIndex = i;
+					if (isSelected)
+						PopStyleColor(1);
+
+					if (BeginDragDropTarget()) {
+						var payload = AcceptDragDropPayload(DragDropType.Pattern);
+						if (payload.NativePtr != (void*)0) {
+							int patternIndex = *(int*)payload.Data;
+							var pattern = Greg.Patterns[patternIndex];
+							slot.pattern = pattern;
+						}
+						EndDragDropTarget();
+					}
+					
+					SameLine();
+					
+					PopID();
+				}
+			}
+			EndGroup();
+			PopID();
+			
+			return changed;
+		}
 	}
 
 #endregion

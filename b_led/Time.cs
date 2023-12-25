@@ -38,14 +38,14 @@ static class Metronome {
 	public static float speed = 1f;
 	
 	static float tLast;
+	static float tDownbeat;
 	static Phase beatPhaseLast;
 
 	public static float T { [Impl(Inline)] get; private set; }
-	public static float TDelta { get; private set; }
-	public static float TLastBeat { get; private set; }
+	public static float TSynced { [Impl(Inline)] get; private set; }
+	public static float TDelta { [Impl(Inline)] get; private set; }
 
-	public static Phase DownbeatPhase { get; private set; }
-	public static Phase BeatPhase => (Phase)(T - DownbeatPhase);
+	public static Phase BeatPhase => (Phase)(T - tDownbeat);
 	public static bool IsOnBeat => BeatPhase < beatPhaseLast;
 	public static float BeatPulse => IsOnBeat ? 1f : 0f;
 
@@ -55,22 +55,19 @@ static class Metronome {
 		beatPhaseLast = BeatPhase;
 		
 		T += deltaTime * tempo.BeatsPerSecond * speed;
-		TDelta = T - tLast;
-		
 		if (setDownbeatNextTick) {
-			DownbeatPhase = (Phase)T;
+			tDownbeat = T;
 			setDownbeatNextTick = false;
 		}
-		if (IsOnBeat) {
-			TLastBeat = T;
-		}
+		TSynced = T - tDownbeat;
+		TDelta = T - tLast;
 	}
 
 	static bool setDownbeatNextTick = false;
 
 	public static void SetDownbeat() => setDownbeatNextTick = true;
 
-	public static float Interval(float beats) => T % beats / beats;
+	public static float SyncedInterval(float beats) => TSynced % beats / beats;
 
 #region tap tempo
 

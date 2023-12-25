@@ -22,7 +22,9 @@ sealed class Project {
 	public const string FileExt = "blep";
 
 	[DataMember] public List<Palette> Palettes { get; private init; } = new();
-	[DataMember] public List<Sequence> Sequences { get; private init; } = new();
+	[DataMember] public List<Sequence> Sequences { get; private init; } = new() {
+		new(),
+	};
 	[DataMember] public ClipBank[] ClipBanks { get; private init; } = new ClipBank[8] {
 		new("bank 1"),
 		new("bank 2"),

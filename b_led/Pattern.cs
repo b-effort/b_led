@@ -1,4 +1,3 @@
-using System.Diagnostics.CodeAnalysis;
 using System.Runtime.Serialization;
 using System.Text.Json.Serialization;
 using JetBrains.Annotations;
@@ -6,9 +5,9 @@ using JetBrains.Annotations;
 namespace b_effort.b_led;
 
 static class PatternScript {
-	public static float t { [Impl(Inline)] get => Metronome.T; }
+	public static float t { [Impl(Inline)] get => Metronome.TSynced; }
 	public static float dt => Metronome.TDelta;
-	public static float interval(float beats) => Metronome.Interval(beats);
+	public static float interval(float beats) => Metronome.SyncedInterval(beats);
 
 	public static float saw(float x) => x % 1f;
 	public static float sine(float x) => BMath.sin01(x - 0.25f);
@@ -19,7 +18,6 @@ static class PatternScript {
 	public static float square(float x) => pulse(x + 0.5f, 0.5f);
 	public static float pulse(float x, float dutyCycle) => x % 1 >= 1 - (dutyCycle % 1) ? 1f : 0f;
 
-	[SuppressMessage("ReSharper", "MemberHidesStaticFromOuterClass")]
 	public static class beat {
 		public static float saw(float beats = 1f, float phase = 0f) => PatternScript.saw(interval(beats) + phase);
 		public static float sine(float beats, float phase = 0f) => PatternScript.sine(interval(beats) + phase);
@@ -135,12 +133,14 @@ sealed class Sequence : ClipContents {
 
 		public Pattern? pattern;
 
+		public bool HasPattern => this.pattern != null;
+
 		public Slot()
-			: this(patternId: null) { }
+			: this(pattern_id: null) { }
 		
 		[JsonConstructor]
-		public Slot(string? patternId) {
-			this.PatternId = patternId;
+		public Slot(string? pattern_id) {
+			this.PatternId = pattern_id;
 		}
 	}
 	
@@ -149,6 +149,16 @@ sealed class Sequence : ClipContents {
 	
 	readonly List<Slot> slots;
 	[DataMember] public IReadOnlyList<Slot> Slots => this.slots;
+
+	public Slot? ActiveSlot {
+		get {
+			if (this.Slots.Count == 0)
+				return null;
+			float interval = Metronome.SyncedInterval(this.slots.Count);
+			var i = (int)(interval * this.slots.Count);
+			return this.slots[i];
+		}
+	}
 
 	public Sequence(string name = "new sequence")
 		: this(

@@ -65,19 +65,15 @@ sealed class PalettesWindow {
 					var palette = palettes[i];
 					var isSelected = palette == currentPalette;
 
-					if (isSelected) {
+					if (isSelected)
 						PushStyleColor(ImGuiCol.Button, GetColorU32(ImGuiCol.ButtonActive));
-					}
-					if (ImageButton($"##palette_{i}", palette.preview.TextureId, barSize)) {
-						Greg.ActivePalette = palette; 
-					}
-					if (isSelected) {
+					if (ImageButton($"##palette_{i}", palette.preview.TextureId, barSize))
+						Greg.ActivePalette = palette;
+					if (isSelected)
 						PopStyleColor(1);
-					}
 
-					if (IsItemHovered()) {
+					if (IsItemHovered())
 						SetTooltip(palette.name);
-					}
 
 					if (BeginDragDropSource()) {
 						SetDragDropPayload(DragDropType.Palette, new nint(&i), sizeof(int));
@@ -125,41 +121,26 @@ sealed class PatternsWindow {
 					PushID(row);
 					for (int col = 0; col < numCols; col++, i++) {
 						TableSetColumnIndex(col);
+
+						if (i >= patterns.Length)
+							continue;
+						
 						PushID(i);
-
-						if (i < patterns.Length) {
-							var pattern = patterns[i];
+						var pattern = patterns[i];
 							
-							var origin = GetCursorScreenPos();
-							drawList.AddImage(
-								p_min: origin,
-								p_max: origin + patternSize,
-								user_texture_id: pattern.TextureId
-							);
-							drawList.AddRect(
-								p_min: origin,
-								p_max: origin + patternSize,
-								col: GetColorU32(ImGuiCol.Border),
-								rounding: 0,
-								flags: ImDrawFlags.None,
-								thickness: 3
-							);
-
-							if (InvisibleButton(string.Empty, patternSize)) {
-								Greg.ActivePattern = pattern;
-							}
+						if (PatternButton(string.Empty, pattern, patternSize)) {
+							Greg.ActivePattern = pattern;
+						}
 							
-							if (IsItemHovered()) {
-								SetTooltip(pattern.name);
-							}
+						if (IsItemHovered()) {
+							SetTooltip(pattern.name);
+						}
 
-							if (BeginDragDropSource()) {
-								SetDragDropPayload(DragDropType.Pattern, new nint(&i), sizeof(int));
-								Text(pattern.name);
-								Image(pattern.TextureId, patternSize);
-								EndDragDropSource();
-							}
-							
+						if (BeginDragDropSource()) {
+							SetDragDropPayload(DragDropType.Pattern, new nint(&i), sizeof(int));
+							Text(pattern.name);
+							Image(pattern.TextureId, patternSize);
+							EndDragDropSource();
 						}
 						PopID();
 					}
@@ -175,13 +156,39 @@ sealed class PatternsWindow {
 }
 
 sealed class SequencesWindow {
-	public unsafe void Show() {
+	Sequence? selectedSequence;
+	readonly SequenceEdit sequenceEdit = new("selected_sequence");
+
+	public void Show() {
+		var sequences = Greg.Sequences;
+
+		if (this.selectedSequence is null && sequences.Count > 0) {
+			this.selectedSequence = sequences.First();
+		}
+		
 		SetNextWindowSize(em(24, 12), ImGuiCond.FirstUseEver);
 		Begin("sequences");
 		{
 			var drawList = GetWindowDrawList();
 
-			
+			if (this.selectedSequence != null) {
+				this.sequenceEdit.Render(this.selectedSequence);
+			}
+
+			SeparatorText("all sequences");
+			PushStyleColor(ImGuiCol.FrameBg, Vector4.Zero);
+			if (BeginListBox("##sequences_list", GetContentRegionAvail())) {
+				for (var i = 0; i < sequences.Count; i++) {
+					var sequence = sequences[i];
+					var isSelected = sequence == this.selectedSequence;
+
+					if (Selectable(sequence.name, isSelected))
+						this.selectedSequence = sequence;
+				}
+
+				EndListBox();
+			}
+			PopStyleColor(1);
 		}
 		End();
 	}
