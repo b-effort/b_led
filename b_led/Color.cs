@@ -5,11 +5,14 @@ namespace b_effort.b_led;
 
 static class Color {
 	public static HSB hsb(float h, float s = 1f, float b = 1f) {
-		if (h != 1f) {
+		if (!float.IsNormal(h)) {
+			h = 0f;
+		} else if (float.Abs(h) == 1f) {
+			h = 1f;
+		} else {
 			h %= 1f;
-			if (!float.IsNormal(h)) {
-				h = 0f;
-			}
+			if (h < 0)
+				h = 1f - h;
 		}
 		return new HSB(h, s, b);
 	}
