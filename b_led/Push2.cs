@@ -116,9 +116,9 @@ static class Push2 {
 			
 			SetPadColor(pad, color);
 			
-			if (WasPressed(pad)) {
-				Greg.ActivePalette = palette;
-			}
+			// if (WasPressed(pad)) {
+			// 	Greg.ActivePalette = palette;
+			// }
 		}
 
 		ReapplyPalette();

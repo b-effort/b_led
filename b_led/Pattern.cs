@@ -80,6 +80,7 @@ abstract class Pattern : ClipContents, IDisposable {
 	readonly Texture2D texture;
 	readonly rlColor[] texturePixels;
 	public nint TextureId => (nint)this.texture.id;
+	nint? ClipContents.TextureId => this.TextureId;
 
 	protected Pattern() {
 		this.name = this.GetType().Name.Replace("Pattern", null);
@@ -159,6 +160,8 @@ sealed class Sequence : ClipContents {
 			return this.slots[i];
 		}
 	}
+
+	public nint? TextureId => this.ActiveSlot?.pattern?.TextureId;
 
 	public Sequence(string name = "new sequence")
 		: this(

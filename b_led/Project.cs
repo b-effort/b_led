@@ -36,17 +36,18 @@ sealed class Project {
 		new("bank 8"),
 	};
 
+	void Init() {
+		foreach (var bank in this.ClipBanks)
+			bank.InitClips(this);
+	}
+
 	public static Project Load(string filePath) {
 		string json = File.ReadAllText(filePath);
 		Project? project = JsonSerializer.Deserialize<Project>(json, serializerOptions);
-		if (project is null) {
+		if (project is null)
 			throw new Exception($"Failed to load project: {filePath}");
-		}
 
-		foreach (ClipBank bank in project.ClipBanks)
-		foreach (Clip[] clips in bank.clips)
-		foreach (Clip clip in clips)
-			clip.LoadContents(project);
+		project.Init();
 
 		Console.WriteLine($"Project loaded: {filePath}");
 		return project;

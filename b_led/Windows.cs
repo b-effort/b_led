@@ -1,6 +1,7 @@
 using static ImGuiNET.ImGui;
 using static b_effort.b_led.Widgets;
 using static b_effort.b_led.ImGuiShorthand;
+using static b_effort.b_led.Interop.ImGuiInternal;
 
 namespace b_effort.b_led;
 
@@ -43,15 +44,15 @@ sealed class PreviewWindow : IDisposable {
 }
 
 sealed class PalettesWindow {
+	Palette? selectedPalette;
 	readonly GradientEditState editState = new();
 
 	public unsafe void Show() {
 		SetNextWindowSize(em(24, 12), ImGuiCond.FirstUseEver);
 		Begin("palettes");
 		{
-			var currentPalette = Greg.ActivePalette;
-			if (currentPalette != null)
-				GradientEdit("current_palette", currentPalette.preview, this.editState);
+			if (this.selectedPalette != null)
+				GradientEdit("selected_palette", this.selectedPalette.preview, this.editState);
 			
 			SeparatorText("all palettes");
 			PushStyleColor(ImGuiCol.FrameBg, Vector4.Zero); 
@@ -63,12 +64,12 @@ sealed class PalettesWindow {
 				var palettes = Greg.Palettes;
 				for (var i = 0; i < palettes.Count; i++) {
 					var palette = palettes[i];
-					var isSelected = palette == currentPalette;
+					var isSelected = palette == this.selectedPalette;
 
 					if (isSelected)
 						PushStyleColor(ImGuiCol.Button, GetColorU32(ImGuiCol.ButtonActive));
 					if (ImageButton($"##palette_{i}", palette.preview.TextureId, barSize))
-						Greg.ActivePalette = palette;
+						this.selectedPalette = palette;
 					if (isSelected)
 						PopStyleColor(1);
 
@@ -92,15 +93,12 @@ sealed class PalettesWindow {
 }
 
 sealed class PatternsWindow {
+	Pattern? selectedPattern;
+	
 	public unsafe void Show() {
 		SetNextWindowSize(em(24, 12), ImGuiCond.FirstUseEver);
 		Begin("patterns");
 		{
-			var drawList = GetWindowDrawList();
-			
-			var currentPattern = Greg.ActivePattern;
-			var patterns = Greg.Patterns;
-
 			Vector2 avail = GetContentRegionAvail();
 			float cellMargin = Style.FramePadding.X * 2;
 			float minColWidth = em(4) + cellMargin;
@@ -109,6 +107,7 @@ sealed class PatternsWindow {
 			if (numCols < 1)
 				return;
 			
+			var patterns = Greg.Patterns;
 			int numRows = (int)MathF.Ceiling((float)patterns.Length / numCols);
 			Vector2 patternSize = vec2(MathF.Floor(avail.X / numCols) - cellMargin);
 			float rowHeight = patternSize.Y + cellMargin;
@@ -119,23 +118,19 @@ sealed class PatternsWindow {
 				for (int row = 0, i = 0; row < numRows; row++) {
 					TableNextRow(0, rowHeight);
 					PushID(row);
-					for (int col = 0; col < numCols; col++, i++) {
+					for (int col = 0; col < numCols && i < patterns.Length; col++, i++) {
 						TableSetColumnIndex(col);
-
-						if (i >= patterns.Length)
-							continue;
-						
 						PushID(i);
 						var pattern = patterns[i];
+						var isSelected = pattern == this.selectedPattern;
 							
-						if (PatternButton(string.Empty, pattern, patternSize)) {
-							Greg.ActivePattern = pattern;
-						}
+						if (isSelected)
+							PushStyleColor(ImGuiCol.Button, GetColorU32(ImGuiCol.ButtonActive));
+						if (PatternButton(string.Empty, pattern, patternSize))
+							this.selectedPattern = pattern;
+						if (isSelected)
+							PopStyleColor(1);
 							
-						if (IsItemHovered()) {
-							SetTooltip(pattern.name);
-						}
-
 						if (BeginDragDropSource()) {
 							SetDragDropPayload(DragDropType.Pattern, new nint(&i), sizeof(int));
 							Text(pattern.name);
@@ -161,7 +156,6 @@ sealed class SequencesWindow {
 
 	public void Show() {
 		var sequences = Greg.Sequences;
-
 		if (this.selectedSequence is null && sequences.Count > 0) {
 			this.selectedSequence = sequences.First();
 		}
@@ -172,7 +166,7 @@ sealed class SequencesWindow {
 			var drawList = GetWindowDrawList();
 
 			if (this.selectedSequence != null) {
-				this.sequenceEdit.Render(this.selectedSequence);
+				this.sequenceEdit.Draw(this.selectedSequence);
 			}
 
 			SeparatorText("all sequences");
@@ -201,7 +195,7 @@ sealed class ClipsWindow {
 		{
 			var drawList = GetWindowDrawList();
 			
-			var clipBank = Greg.SelectedClipBank;
+			var clipBank = Greg.ActiveClipBank;
 			if (clipBank is null)
 				return;
 
@@ -213,42 +207,41 @@ sealed class ClipsWindow {
 			float cellMargin = Style.FramePadding.X * 2;
 			Vector2 clipSize = vec2(MathF.Floor(avail.X / numCols) - cellMargin);
 			float rowHeight = clipSize.Y + cellMargin;
-			
+			Vector2 clipBorder = vec2(2);
+
 			if (BeginTable("clips_table", numCols, 0, avail)) {
 				PushStyleVar(ImGuiStyleVar.CellPadding, 0);
-				for (var row = 0; row < numRows; row++) {
+				for (int row = 0, i = 0; row < numRows; row++) {
 					TableNextRow(0, rowHeight);
 					PushID(row);
-					for (var col = 0; col < numCols; col++) {
+					for (int col = 0; col < numCols; col++, i++) {
 						TableSetColumnIndex(col);
-						var id = row * numCols + col;
-						PushID(id);
+						PushID(i);
 						var clip = clips[row][col];
-
 						var origin = GetCursorScreenPos();
-						if (clip.HasContents) {
-							switch (clip.Contents) {
-								case Palette palette:
-									drawList.AddImage(palette.preview.TextureId, origin, origin + clipSize);
-									break;
-								case Pattern pattern:
-									drawList.AddImage(pattern.TextureId, origin, origin + clipSize);
-									break;
-								default: throw new ArgumentOutOfRangeException();
-							}
-						}
-						drawList.AddRect(
-							p_min: origin,
-							p_max: origin + clipSize,
-							col: GetColorU32(ImGuiCol.Border),
-							rounding: 0,
-							flags: ImDrawFlags.None,
-							thickness: 3
-						);
 						
 						if (InvisibleButton(string.Empty, clipSize)) {
-							clip.Activate();
+							clipBank.Activate(clip);
 						}
+						bool isActive = clipBank.IsActive(clip);
+						bool isHovered = IsItemHovered();
+						uint frameColor = GetColorU32(
+							(isHovered && clip.HasContents, isActive) switch {
+								(true, true)  => ImGuiCol.ButtonActive,
+								(true, false) => ImGuiCol.ButtonHovered,
+								_             => ImGuiCol.Border,
+							}
+						);
+						RenderFrame(
+							p_min: origin,
+							p_max: origin + clipSize,
+							frameColor
+						);
+						drawList.AddImageOrEmpty(
+							clip.Contents?.TextureId,
+							p_min: origin + clipBorder,
+							p_max: origin + clipSize - clipBorder
+						);
 						
 						if (BeginDragDropTarget()) {
 							var payload = AcceptDragDropPayload(DragDropType.Palette);

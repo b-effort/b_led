@@ -175,27 +175,36 @@ static class Widgets {
 
 #region pattern
 
-	public static bool PatternButton(string id, Pattern? pattern, Vector2 size) {
+	public static bool PatternButton(string id, Pattern? pattern, Vector2 size, bool showTooltip = true) {
 		var drawList = GetWindowDrawList();
 		var origin = GetCursorScreenPos();
-		
-		if (pattern != null)
-			drawList.AddImage(
-				p_min: origin,
-				p_max: origin + size,
-				user_texture_id: pattern.TextureId
-			);
-		drawList.AddRect(
-			p_min: origin,
-			p_max: origin + size,
-			col: GetColorU32(ImGuiCol.Border),
-			rounding: 0,
-			flags: ImDrawFlags.None,
-			thickness: 3
-		);
+		Vector2 border = vec2(2);
 
 		bool changed = InvisibleButton(id, size);
+		bool isHovered = IsItemHovered();
+		bool isHeld = IsItemActive();
 		
+		uint frameColor = GetColorU32(
+			(isHovered, isHeld) switch {
+				(true, true)  => ImGuiCol.ButtonActive,
+				(true, false) => ImGuiCol.ButtonHovered,
+				_             => ImGuiCol.Border,
+			}
+		);
+		RenderFrame(
+			p_min: origin,
+			p_max: origin + size,
+			frameColor
+		);
+		drawList.AddImageOrEmpty(
+			pattern?.TextureId,
+			p_min: origin + border,
+			p_max: origin + size - border
+		);
+		if (pattern != null && isHovered && showTooltip) {
+			SetTooltip(pattern.name);
+		}
+
 		return changed;
 	}
 
@@ -586,9 +595,7 @@ static class Widgets {
 			this.id = id;
 		}
 
-		public unsafe bool Render(Sequence sequence) {
-			bool changed = false;
-			
+		public unsafe void Draw(Sequence sequence) {
 			PushID(this.id);
 			BeginGroup();
 			{
@@ -607,7 +614,7 @@ static class Widgets {
 						this.selectedIndex = i;
 					if (isSelected)
 						PopStyleColor(1);
-
+					
 					if (BeginDragDropTarget()) {
 						var payload = AcceptDragDropPayload(DragDropType.Pattern);
 						if (payload.NativePtr != (void*)0) {
@@ -625,8 +632,6 @@ static class Widgets {
 			}
 			EndGroup();
 			PopID();
-			
-			return changed;
 		}
 	}
 

@@ -205,16 +205,14 @@ static class Greg {
 	static Project project = new();
 
 	public static List<Palette> Palettes => project.Palettes;
-	public static Palette? ActivePalette { get; set; } = Palettes.FirstOrDefault();
-
-	public static Pattern[] Patterns { get; } = Pattern.All;
-	public static Pattern? ActivePattern { get; set; } = Patterns[0];
-
+	public static Pattern[] Patterns => Pattern.All;
 	public static List<Sequence> Sequences => project.Sequences;
-	public static Sequence? ActiveSequence { get; set; }
-
 	public static ClipBank[] ClipBanks => project.ClipBanks;
-	public static ClipBank? SelectedClipBank { get; set; } = ClipBanks[0];
+	
+	public static ClipBank? ActiveClipBank { get; set; } = ClipBanks[0];
+	public static Palette? ActivePalette => (Palette?)ActiveClipBank?.ActivePaletteClip?.Contents;
+	public static Pattern? ActivePattern => (Pattern?)ActiveClipBank?.ActivePatternClip?.Contents;
+
 
 	public static void LoadDemoProject() {
 		project = new Project {
@@ -234,9 +232,7 @@ static class Greg {
 				)),
 			},
 		};
-		
-		ActivePalette = Palettes[2];
-		SelectedClipBank = ClipBanks[0];
+		ActiveClipBank = ClipBanks[0];
 	}
 
 	static Greg() {
@@ -252,11 +248,7 @@ static class Greg {
 
 	public static void LoadProject() {
 		project = Project.Load(ProjectFile);
-		ActivePalette = Palettes.FirstOrDefault();
-		SelectedClipBank = ClipBanks[0];
-		
-		
-		ActiveSequence = Sequences.FirstOrDefault();
+		ActiveClipBank = ClipBanks[0];
 	}
 	
 	// public static LEDMapper[] LEDMappers { get; set; } = Array.Empty<LEDMapper>();
@@ -264,13 +256,8 @@ static class Greg {
 	public static readonly RGB[,] outputBuffer = new RGB[BufferWidth, BufferWidth];
 
 	public static void Update() {
-		Pattern? pattern = null;
-		var sequence = ActiveSequence;
-		if (sequence != null) {
-			pattern = sequence.ActiveSlot?.pattern;
-		}
-		pattern ??= ActivePattern;
-		if (pattern is null)
+		var pattern = ActivePattern;
+		if (pattern == null)
 			return;
 
 		pattern.Update();
@@ -294,19 +281,19 @@ static class Greg {
 
 interface ClipContents {
 	string Id { get; }
-	// todo: expose preview texture id
-}
-
-enum ClipType {
-	Empty,
-	Palette,
-	Pattern,
-	Sequence,
+	nint? TextureId { get; }
 }
 
 [DataContract]
 sealed class Clip {
-	[DataMember] ClipType type;
+	enum ContentsType {
+		Empty,
+		Palette,
+		Pattern,
+		Sequence,
+	}
+	
+	[DataMember] ContentsType contentsType;
 	[DataMember] string? contentsId;
 
 	ClipContents? contents;
@@ -314,11 +301,11 @@ sealed class Clip {
 		get => this.contents;
 		set {
 			this.contents = value;
-			this.type = this.contents switch {
-				null     => ClipType.Empty,
-				Palette  => ClipType.Palette,
-				Pattern  => ClipType.Pattern,
-				Sequence => ClipType.Sequence,
+			this.contentsType = this.contents switch {
+				null     => ContentsType.Empty,
+				Palette  => ContentsType.Palette,
+				Pattern  => ContentsType.Pattern,
+				Sequence => ContentsType.Sequence,
 				_        => throw new ArgumentOutOfRangeException(),
 			};
 			this.contentsId = value?.Id;
@@ -327,37 +314,14 @@ sealed class Clip {
 
 	public bool HasContents => this.Contents != null;
 
-	public bool IsActive => this.Contents switch {
-		null              => false,
-		Palette palette   => Greg.ActivePalette == palette,
-		Pattern pattern   => Greg.ActivePattern == pattern,
-		Sequence sequence => Greg.ActiveSequence == sequence,
-		_                 => throw new ArgumentOutOfRangeException(),
-	};
-
-	internal void LoadContents(Project project) {
-		switch (this.type) {
-			case ClipType.Empty: break;
-			case ClipType.Palette:
+	internal void InitContents(Project project) {
+		switch (this.contentsType) {
+			case ContentsType.Empty: break;
+			case ContentsType.Palette:
 				this.Contents = project.Palettes.First(p => p.Id == this.contentsId);
 				break;
-			case ClipType.Pattern:
-				this.Contents = Greg.Patterns.First(p => p.Id == this.contentsId);
-				break;
-			default: throw new ArgumentOutOfRangeException();
-		}
-	}
-
-	public void Activate() {
-		if (this.Contents is null)
-			return;
-
-		switch (this.Contents) {
-			case Palette palette:
-				Greg.ActivePalette = palette;
-				break;
-			case Pattern pattern:
-				Greg.ActivePattern = pattern;
+			case ContentsType.Pattern:
+				this.Contents = Pattern.FromId(this.contentsId!);
 				break;
 			default: throw new ArgumentOutOfRangeException();
 		}
@@ -371,7 +335,7 @@ sealed class ClipBank {
 
 	[DataMember] public string name;
 	[DataMember] public readonly Clip[][] clips;
-
+	
 	public ClipBank(string name) {
 		this.name = name;
 		
@@ -395,4 +359,42 @@ sealed class ClipBank {
 		}
 		this.clips = clips;
 	}
+
+	internal void InitClips(Project project) {
+		foreach (var clip in this.clips.SelectMany(x => x)) {
+			clip.InitContents(project);
+		}
+	}
+	
+	public Clip? ActivePaletteClip { get; private set; }
+	public Clip? ActivePatternClip { get; private set; }
+
+	public IEnumerable<Clip> ActiveClips {
+		get {
+			var clip = this.ActivePaletteClip;
+			if (clip != null) yield return clip;
+			clip = this.ActivePatternClip;
+			if (clip != null) yield return clip;
+		}
+	}
+
+	public bool Activate(Clip clip) {
+		if (!clip.HasContents)
+			return false;
+
+		switch (clip.Contents) {
+			case Palette:
+				this.ActivePaletteClip = clip;
+				break;
+			case Pattern:
+			case Sequence:
+				this.ActivePatternClip = clip;
+				break;
+			default: throw new ArgumentOutOfRangeException();
+		}
+
+		return true;
+	}
+
+	public bool IsActive(Clip clip) => clip.HasContents && this.ActiveClips.Contains(clip);
 }

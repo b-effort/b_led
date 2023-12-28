@@ -60,6 +60,16 @@ static class ImGuiUtil {
 
 		ImGui.Image((nint)texture.id, vec2(sizeX, sizeY));
 	}
+
+	public static void AddImageOrEmpty(this ImDrawListPtr drawList, nint? textureId, Vector2 p_min, Vector2 p_max) {
+		uint bgColor = ImGui.GetColorU32(ImGuiCol.WindowBg);
+		
+		if (textureId.HasValue) {
+			drawList.AddImage(textureId.Value, p_min, p_max);
+		} else {
+			drawList.AddRectFilled(p_min, p_max, bgColor);
+		}
+	}
 }
 
 static class RaylibUtil {

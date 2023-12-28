@@ -294,6 +294,7 @@ sealed class Palette : ClipContents {
 	[DataMember] public readonly Gradient gradient;
 	
 	public readonly GradientPreview preview;
+	public nint? TextureId => this.preview.TextureId;
 
 	public Palette(string name = "new palette", Gradient? gradient = null)
 		: this(

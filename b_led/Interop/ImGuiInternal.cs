@@ -24,6 +24,13 @@ static partial class ImGuiInternal {
 		string format,
 		ImGuiSliderFlags flags
 	);
+	
+	[LibraryImport(LibName, EntryPoint = "igRenderFrame"),
+	 UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+	public static unsafe partial void RenderFrame(Vector2 p_min, Vector2 p_max, uint col, CBool border, float rounding);
+
+	public static void RenderFrame(Vector2 p_min, Vector2 p_max, uint col) =>
+		RenderFrame(p_min, p_max, col, false, 0);
 
 	[LibraryImport(LibName, EntryPoint = "igRenderFrameBorder"),
 	 UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
