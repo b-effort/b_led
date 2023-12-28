@@ -46,7 +46,14 @@ static class DragDrop {
 			EndDragDropSource();
 		}
 	}
-
+	
+	public static void SourceSequence(Sequence sequence) {
+		if (BeginSource(sequence)) {
+			Text(sequence.name);
+			EndDragDropSource();
+		}
+	}
+	
 	static unsafe bool WasAccepted(this ImGuiPayloadPtr payload) => payload.NativePtr != (void*)0;
 }
 

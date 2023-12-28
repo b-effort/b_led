@@ -167,6 +167,8 @@ sealed class SequencesWindow {
 
 					if (Selectable(sequence.name, isSelected))
 						this.selectedSequence = sequence;
+					
+					DragDrop.SourceSequence(sequence);
 				}
 
 				EndListBox();
@@ -237,6 +239,8 @@ sealed class ClipsWindow {
 								clip.Contents = palette;
 							} else if (DragDrop.Accept(out Pattern? pattern)) {
 								clip.Contents = pattern;
+							} else if (DragDrop.Accept(out Sequence? sequence)) {
+								clip.Contents = sequence;
 							}
 							EndDragDropTarget();
 						}

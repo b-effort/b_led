@@ -29,7 +29,7 @@ sealed class TestPattern : Pattern {
 
 sealed class EdgeBurstPattern : Pattern {
 	protected override HSB Render(int i, float x, float y) {
-		float t1 = beat.triangle(5f);
+		float t1 = beat.triangle(2f);
 		float edge = clamp(triangle(x) + t1 * 4 - 2);
 		float h = edge * edge - 0.2f;
 		float b = triangle(edge);

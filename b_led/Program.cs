@@ -265,7 +265,7 @@ static class Greg {
 		for (var y = 0; y < BufferWidth; y++)
 		for (var x = 0; x < BufferWidth; x++) {
 			HSB color = patternPixels[y, x];
-			color.h = MathF.Abs(color.h + hueOffset) % 1f;
+			color.h += hueOffset % 1f;
 			if (gradient != null) {
 				color = gradient.MapColor(color);
 			}
@@ -317,6 +317,9 @@ sealed class Clip {
 				break;
 			case ContentsType.Pattern:
 				this.Contents = Pattern.FromId(this.contentsId!);
+				break;
+			case ContentsType.Sequence:
+				this.Contents = project.Sequences.First(s => s.Id == this.contentsId);
 				break;
 			default: throw new ArgumentOutOfRangeException();
 		}
