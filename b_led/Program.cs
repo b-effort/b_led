@@ -265,10 +265,13 @@ static class Greg {
 		for (var y = 0; y < BufferWidth; y++)
 		for (var x = 0; x < BufferWidth; x++) {
 			HSB color = patternPixels[y, x];
-			color.h += hueOffset % 1f;
-			if (gradient != null) {
+			
+			color.h += hueOffset;
+			if (color.h > 1f)
+				color.h %= 1f;
+			if (gradient != null)
 				color = gradient.MapColor(color);
-			}
+			
 			outputs[y, x] = color.ToRGB();
 		}
 	}

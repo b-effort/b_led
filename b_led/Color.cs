@@ -5,6 +5,7 @@ namespace b_effort.b_led;
 
 static class Color {
 	public static HSB hsb(float h, float s = 1f, float b = 1f) {
+		// todo: move this validation to a normalize method
 		if (!float.IsNormal(h)) {
 			h = 0f;
 		} else if (float.Abs(h) == 1f) {
@@ -12,7 +13,7 @@ static class Color {
 		} else {
 			h %= 1f;
 			if (h < 0)
-				h = 1f - h;
+				h += 1;
 		}
 		return new HSB(h, s, b);
 	}
@@ -97,11 +98,8 @@ static class Color {
 
 		[Impl(Inline)] public uint ToU32() => this.ToRGB().ToU32();
 
-		public static implicit operator HSB(Vector3 vec) => new(vec.X, vec.Y, vec.Z);
-		public static implicit operator Vector3(HSB @this) => new(@this.h, @this.s, @this.b);
-
-		public static implicit operator HSB(Vector4 vec) => new(vec.X, vec.Y, vec.Z);
-		public static implicit operator Vector4(HSB @this) => new(@this.h, @this.s, @this.b, 1f);
+		public static explicit operator Vector3(HSB @this) => new(@this.h, @this.s, @this.b);
+		public static explicit operator Vector4(HSB @this) => new(@this.h, @this.s, @this.b, 1f);
 	}
 
 	public readonly record struct HSL(float h, float s, float l) {
