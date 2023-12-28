@@ -190,11 +190,6 @@ static class ImFonts {
 
 // delegate LEDMap LEDMapper(int numPixels);
 
-static class DragDropType {
-	public const string Palette = "palette";
-	public const string Pattern = "pattern";
-}
-
 // greg is secretary of state
 // greg is a beast you can't tame
 static class Greg {
@@ -210,8 +205,8 @@ static class Greg {
 	public static ClipBank[] ClipBanks => project.ClipBanks;
 	
 	public static ClipBank? ActiveClipBank { get; set; } = ClipBanks[0];
-	public static Palette? ActivePalette => (Palette?)ActiveClipBank?.ActivePaletteClip?.Contents;
-	public static Pattern? ActivePattern => (Pattern?)ActiveClipBank?.ActivePatternClip?.Contents;
+	public static Palette? ActivePalette => ActiveClipBank?.ActivePalette;
+	public static Pattern? ActivePattern => ActiveClipBank?.ActivePattern;
 
 
 	public static void LoadDemoProject() {
@@ -366,17 +361,16 @@ sealed class ClipBank {
 		}
 	}
 	
-	public Clip? ActivePaletteClip { get; private set; }
-	public Clip? ActivePatternClip { get; private set; }
+	Clip? activePaletteClip;
+	Clip? activePatternClip;
 
-	public IEnumerable<Clip> ActiveClips {
-		get {
-			var clip = this.ActivePaletteClip;
-			if (clip != null) yield return clip;
-			clip = this.ActivePatternClip;
-			if (clip != null) yield return clip;
-		}
-	}
+	public Palette? ActivePalette => (Palette?)this.activePaletteClip?.Contents;
+	public Pattern? ActivePattern => this.activePatternClip?.Contents switch {
+		null              => null,
+		Pattern pattern   => pattern,
+		Sequence sequence => sequence.ActivePattern,
+		_                 => throw new ArgumentOutOfRangeException(),
+	};
 
 	public bool Activate(Clip clip) {
 		if (!clip.HasContents)
@@ -384,16 +378,25 @@ sealed class ClipBank {
 
 		switch (clip.Contents) {
 			case Palette:
-				this.ActivePaletteClip = clip;
+				this.activePaletteClip = clip;
 				break;
 			case Pattern:
 			case Sequence:
-				this.ActivePatternClip = clip;
+				this.activePatternClip = clip;
 				break;
 			default: throw new ArgumentOutOfRangeException();
 		}
 
 		return true;
+	}
+	
+	IEnumerable<Clip> ActiveClips {
+		get {
+			var clip = this.activePaletteClip;
+			if (clip != null) yield return clip;
+			clip = this.activePatternClip;
+			if (clip != null) yield return clip;
+		}
 	}
 
 	public bool IsActive(Clip clip) => clip.HasContents && this.ActiveClips.Contains(clip);

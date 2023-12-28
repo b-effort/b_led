@@ -151,18 +151,6 @@ sealed class Sequence : ClipContents {
 	readonly List<Slot> slots;
 	[DataMember] public IReadOnlyList<Slot> Slots => this.slots;
 
-	public Slot? ActiveSlot {
-		get {
-			if (this.Slots.Count == 0)
-				return null;
-			float interval = Metronome.SyncedInterval(this.slots.Count);
-			var i = (int)(interval * this.slots.Count);
-			return this.slots[i];
-		}
-	}
-
-	public nint? TextureId => this.ActiveSlot?.pattern?.TextureId;
-
 	public Sequence(string name = "new sequence")
 		: this(
 			id: Guid.NewGuid().ToString(),
@@ -176,6 +164,19 @@ sealed class Sequence : ClipContents {
 		this.name = name;
 		this.slots = slots.ToList();
 	}
+	
+	public Slot? ActiveSlot {
+		get {
+			if (this.Slots.Count == 0)
+				return null;
+			float interval = Metronome.SyncedInterval(this.slots.Count);
+			var i = (int)(interval * this.slots.Count);
+			return this.slots[i];
+		}
+	}
+
+	public Pattern? ActivePattern => this.ActiveSlot?.pattern;
+	public nint? TextureId => this.ActivePattern?.TextureId;
 
 	public void Add() {
 		this.slots.Add(new Slot());

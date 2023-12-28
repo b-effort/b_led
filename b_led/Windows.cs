@@ -47,7 +47,7 @@ sealed class PalettesWindow {
 	Palette? selectedPalette;
 	readonly GradientEditState editState = new();
 
-	public unsafe void Show() {
+	public void Show() {
 		SetNextWindowSize(em(24, 12), ImGuiCond.FirstUseEver);
 		Begin("palettes");
 		{
@@ -76,12 +76,7 @@ sealed class PalettesWindow {
 					if (IsItemHovered())
 						SetTooltip(palette.name);
 
-					if (BeginDragDropSource()) {
-						SetDragDropPayload(DragDropType.Palette, new nint(&i), sizeof(int));
-						Text(palette.name);
-						Image(palette.preview.TextureId, vec2(width, em(1)));
-						EndDragDropSource();
-					}
+					DragDrop.SourcePalette(palette);
 				}
 				
 				EndListBox();
@@ -95,7 +90,7 @@ sealed class PalettesWindow {
 sealed class PatternsWindow {
 	Pattern? selectedPattern;
 	
-	public unsafe void Show() {
+	public void Show() {
 		SetNextWindowSize(em(24, 12), ImGuiCond.FirstUseEver);
 		Begin("patterns");
 		{
@@ -126,17 +121,11 @@ sealed class PatternsWindow {
 							
 						if (isSelected)
 							PushStyleColor(ImGuiCol.Button, GetColorU32(ImGuiCol.ButtonActive));
-						if (PatternButton(string.Empty, pattern, patternSize))
+						if (PatternButton(pattern, patternSize))
 							this.selectedPattern = pattern;
 						if (isSelected)
 							PopStyleColor(1);
 							
-						if (BeginDragDropSource()) {
-							SetDragDropPayload(DragDropType.Pattern, new nint(&i), sizeof(int));
-							Text(pattern.name);
-							Image(pattern.TextureId, patternSize);
-							EndDragDropSource();
-						}
 						PopID();
 					}
 					PopID();
@@ -189,7 +178,7 @@ sealed class SequencesWindow {
 }
 
 sealed class ClipsWindow {
-	public unsafe void Show() {
+	public void Show() {
 		SetNextWindowSize(em(24, 12), ImGuiCond.FirstUseEver);
 		Begin("clips");
 		{
@@ -244,18 +233,10 @@ sealed class ClipsWindow {
 						);
 						
 						if (BeginDragDropTarget()) {
-							var payload = AcceptDragDropPayload(DragDropType.Palette);
-							if (payload.NativePtr != (void*)0) {
-								int patternIndex = *(int*)payload.Data;
-								Pattern pattern = Greg.Patterns[patternIndex];
-								clip.Contents = pattern;
-							} else {
-								payload = AcceptDragDropPayload(DragDropType.Pattern);
-							}
-							if (payload.NativePtr != (void*)0) {
-								int paletteIndex = *(int*)payload.Data;
-								Palette palette = Greg.Palettes[paletteIndex];
+							if (DragDrop.Accept(out Palette? palette)) {
 								clip.Contents = palette;
+							} else if (DragDrop.Accept(out Pattern? pattern)) {
+								clip.Contents = pattern;
 							}
 							EndDragDropTarget();
 						}

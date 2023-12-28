@@ -5,8 +5,12 @@ using System.Runtime.Serialization;
 namespace System.Text.Json.Serialization.Metadata; 
 
 sealed class DataContractJsonTypeInfoResolver : DefaultJsonTypeInfoResolver {
-	public JsonNamingPolicy? PropertyNamingPolicy { get; init; }
+	readonly JsonNamingPolicy? propertyNamingPolicy;
 	
+	public DataContractJsonTypeInfoResolver(JsonNamingPolicy? propertyNamingPolicy = null) {
+		this.propertyNamingPolicy = propertyNamingPolicy;
+	}
+
 	static bool IsNullOrDefault(object? obj) {
 		if (obj is null) {
 			return true;
@@ -75,8 +79,8 @@ sealed class DataContractJsonTypeInfoResolver : DefaultJsonTypeInfoResolver {
 				continue;
 			}
 			
-			if (this.PropertyNamingPolicy != null)
-				propertyName = this.PropertyNamingPolicy.ConvertName(propertyName);
+			if (this.propertyNamingPolicy != null)
+				propertyName = this.propertyNamingPolicy.ConvertName(propertyName);
 
 			JsonPropertyInfo jsonPropertyInfo = jsonTypeInfo.CreateJsonPropertyInfo(propertyType, propertyName);
 

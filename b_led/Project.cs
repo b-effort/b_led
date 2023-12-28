@@ -10,12 +10,8 @@ namespace b_effort.b_led;
 sealed class Project {
 	static readonly JsonNamingPolicy namingPolicy = JsonSnakeCaseNamingPolicy.Default;
 	static readonly JsonSerializerOptions serializerOptions = new() {
-		Converters = {
-			new JsonStringEnumConverter(namingPolicy),
-		},
-		TypeInfoResolver = new DataContractJsonTypeInfoResolver {
-			PropertyNamingPolicy = namingPolicy,
-		},
+		Converters = { new JsonStringEnumConverter(namingPolicy) },
+		TypeInfoResolver = new DataContractJsonTypeInfoResolver(namingPolicy),
 		WriteIndented = true,
 	};
 

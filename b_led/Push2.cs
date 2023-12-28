@@ -404,7 +404,7 @@ static class Push2 {
 
 	public static IReadOnlyDictionary<Encoder, EncoderState> Encoders => encodersInputs;
 
-	public static bool EncoderChanged(Encoder encoder, [MaybeNullWhen(false)] out EncoderState state) {
+	public static bool EncoderChanged(Encoder encoder, [NotNullWhen(true)] out EncoderState? state) {
 		var _state = encodersInputs[encoder];
 		if (_state.WasChanged) {
 			state = _state;

@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using IconFonts;
 using static b_effort.b_led.ImGuiShorthand;
@@ -5,6 +6,49 @@ using static b_effort.b_led.Interop.ImGuiInternal;
 using static ImGuiNET.ImGui;
 
 namespace b_effort.b_led;
+
+static class DragDrop {
+	static object? s_payload = null;
+	
+	public static bool Accept<T>([NotNullWhen(true)] out T? payload)
+		where T : class {
+		if (AcceptDragDropPayload(typeof(T).Name).WasAccepted()) {
+			payload = (T)s_payload!;
+			return true;
+		} else {
+			payload = null;
+			return false;
+		}
+	}
+
+	static bool BeginSource<T>(T payload)
+		where T : class {
+		if (BeginDragDropSource()) {
+			SetDragDropPayload(typeof(T).Name, (nint)null, 0, ImGuiCond.Once);
+			s_payload = payload;
+			return true;
+		}
+		return false;
+	}
+
+	public static void SourcePalette(Palette palette) {
+		if (BeginSource(palette)) {
+			Text(palette.name);
+			Image(palette.preview.TextureId, em(12, 1));
+			EndDragDropSource();
+		}
+	}
+
+	public static void SourcePattern(Pattern pattern) {
+		if (BeginSource(pattern)) {
+			Text(pattern.name);
+			Image(pattern.TextureId, em(4, 4));
+			EndDragDropSource();
+		}
+	}
+
+	static unsafe bool WasAccepted(this ImGuiPayloadPtr payload) => payload.NativePtr != (void*)0;
+}
 
 static class Widgets {
 #region knob
@@ -175,12 +219,17 @@ static class Widgets {
 
 #region pattern
 
-	public static bool PatternButton(string id, Pattern? pattern, Vector2 size, bool showTooltip = true) {
+	public static bool PatternButton(
+		Pattern? pattern,
+		Vector2 size,
+		bool showTooltip = true,
+		bool draggable = true
+	) {
 		var drawList = GetWindowDrawList();
 		var origin = GetCursorScreenPos();
 		Vector2 border = vec2(2);
 
-		bool changed = InvisibleButton(id, size);
+		bool changed = InvisibleButton("##button", size);
 		bool isHovered = IsItemHovered();
 		bool isHeld = IsItemActive();
 		
@@ -201,8 +250,13 @@ static class Widgets {
 			p_min: origin + border,
 			p_max: origin + size - border
 		);
-		if (pattern != null && isHovered && showTooltip) {
-			SetTooltip(pattern.name);
+		if (pattern != null) {
+			if (isHovered && showTooltip) {
+				SetTooltip(pattern.name);
+			}
+			
+			if (draggable)
+				DragDrop.SourcePattern(pattern);
 		}
 
 		return changed;
@@ -595,7 +649,7 @@ static class Widgets {
 			this.id = id;
 		}
 
-		public unsafe void Draw(Sequence sequence) {
+		public void Draw(Sequence sequence) {
 			PushID(this.id);
 			BeginGroup();
 			{
@@ -610,18 +664,13 @@ static class Widgets {
 
 					if (isSelected)
 						PushStyleColor(ImGuiCol.Button, GetColorU32(ImGuiCol.ButtonActive));
-					if (PatternButton(string.Empty, slot.pattern, slotSize))
+					if (PatternButton(slot.pattern, slotSize))
 						this.selectedIndex = i;
 					if (isSelected)
 						PopStyleColor(1);
-					
-					if (BeginDragDropTarget()) {
-						var payload = AcceptDragDropPayload(DragDropType.Pattern);
-						if (payload.NativePtr != (void*)0) {
-							int patternIndex = *(int*)payload.Data;
-							var pattern = Greg.Patterns[patternIndex];
-							slot.pattern = pattern;
-						}
+
+					if (BeginDragDropTarget() && DragDrop.Accept(out Pattern? pattern)) {
+						slot.pattern = pattern;
 						EndDragDropTarget();
 					}
 					
