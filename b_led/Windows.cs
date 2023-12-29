@@ -118,13 +118,10 @@ sealed class PatternsWindow {
 						PushID(i);
 						var pattern = patterns[i];
 						var isSelected = pattern == this.selectedPattern;
-							
-						if (isSelected)
-							PushStyleColor(ImGuiCol.Button, GetColorU32(ImGuiCol.ButtonActive));
-						if (PatternButton(pattern, patternSize))
+
+						uint? frameColor = isSelected ? GetColorU32(ImGuiCol.ButtonActive) : null;
+						if (PatternButton(pattern, patternSize, frameColor))
 							this.selectedPattern = pattern;
-						if (isSelected)
-							PopStyleColor(1);
 							
 						PopID();
 					}
@@ -140,22 +137,19 @@ sealed class PatternsWindow {
 }
 
 sealed class SequencesWindow {
-	Sequence? selectedSequence;
+	int selectedIndex = 0;
 	readonly SequenceEdit sequenceEdit = new("selected_sequence");
 
 	public void Show() {
 		var sequences = Greg.Sequences;
-		if (this.selectedSequence is null && sequences.Count > 0) {
-			this.selectedSequence = sequences.First();
-		}
 		
 		SetNextWindowSize(em(24, 12), ImGuiCond.FirstUseEver);
 		Begin("sequences");
 		{
 			var drawList = GetWindowDrawList();
 
-			if (this.selectedSequence != null) {
-				this.sequenceEdit.Draw(this.selectedSequence);
+			if (sequences.ElementAtOrDefault(this.selectedIndex) is { } selectedSequence) {
+				this.sequenceEdit.Draw(selectedSequence);
 			}
 
 			SeparatorText("all sequences");
@@ -163,10 +157,10 @@ sealed class SequencesWindow {
 			if (BeginListBox("##sequences_list", GetContentRegionAvail())) {
 				for (var i = 0; i < sequences.Count; i++) {
 					var sequence = sequences[i];
-					var isSelected = sequence == this.selectedSequence;
+					var isSelected = i == this.selectedIndex;
 
-					if (Selectable(sequence.name, isSelected))
-						this.selectedSequence = sequence;
+					if (Selectable(sequence.Label, isSelected))
+						this.selectedIndex = i;
 					
 					DragDrop.SourceSequence(sequence);
 				}
@@ -217,7 +211,7 @@ sealed class ClipsWindow {
 						bool isActive = clipBank.IsActive(clip);
 						bool isHovered = IsItemHovered();
 						uint frameColor = GetColorU32(
-							(isHovered && clip.HasContents, isActive) switch {
+							(isHovered && clip.Contents != null, isActive) switch {
 								(true, true)  => ImGuiCol.ButtonActive,
 								(true, false) => ImGuiCol.ButtonHovered,
 								_             => ImGuiCol.Border,

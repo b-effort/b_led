@@ -144,26 +144,34 @@ sealed class Sequence : ClipContents {
 			this.PatternId = pattern_id;
 		}
 	}
+
+	public const int SlotsMin = 2;
+	public const int SlotsMax = 16;
+	public const int NameMaxLength = 64;
 	
 	[DataMember] public string Id { get; }
 	[DataMember] public string name;
+	[DataMember] public TimeFraction slotDuration;
 	
-	readonly List<Slot> slots;
-	[DataMember] public IReadOnlyList<Slot> Slots => this.slots;
+	[DataMember] readonly List<Slot> slots;
+	public IReadOnlyList<Slot> Slots => this.slots;
 
-	public Sequence(string name = "new sequence")
-		: this(
-			id: Guid.NewGuid().ToString(),
-			name,
-			slots: Enumerable.Range(0, 8).Select(_ => new Slot()).ToList()
-		) { }
+	public Sequence(string name = "new sequence") : this(
+		id: Guid.NewGuid().ToString(),
+		name,
+		slots: Enumerable.Range(0, 8).Select(_ => new Slot()).ToList(),
+		slot_duration: new TimeFraction(1, 4)
+	) { }
 
 	[JsonConstructor]
-	public Sequence(string id, string name, IReadOnlyList<Slot> slots) {
+	public Sequence(string id, string name, List<Slot> slots, TimeFraction slot_duration) {
 		this.Id = id;
 		this.name = name;
-		this.slots = slots.ToList();
+		this.slots = slots;
+		this.slotDuration = slot_duration;
 	}
+
+	public string Label => $"{this.name} ({this.Slots.Count})";
 	
 	public Slot? ActiveSlot {
 		get {
@@ -191,5 +199,19 @@ sealed class Sequence : ClipContents {
 		
 		this.slots.RemoveAt(i);
 		return true;
+	}
+
+	public void Resize(int numSlots) {
+		if (numSlots is < SlotsMin or > SlotsMax)
+			throw new OopsiePoopsie("invalid number of slots");
+
+		var slots = this.slots;
+		if (numSlots < slots.Count) {
+			slots.RemoveRange(numSlots, slots.Count - numSlots);
+		} else {
+			while (slots.Count < numSlots) {
+				slots.Add(new());
+			}
+		}
 	}
 }

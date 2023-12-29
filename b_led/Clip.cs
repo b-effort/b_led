@@ -22,7 +22,7 @@ sealed class Clip {
 
 	ClipContents? contents;
 	public ClipContents? Contents {
-		get => this.contents;
+		[Impl(Inline)] get => this.contents;
 		set {
 			this.contents = value;
 			this.contentsType = this.contents switch {
@@ -35,8 +35,6 @@ sealed class Clip {
 			this.contentsId = value?.Id;
 		}
 	}
-
-	public bool HasContents => this.Contents != null;
 
 	internal void InitContents(Project project) {
 		switch (this.contentsType) {
@@ -105,10 +103,8 @@ sealed class ClipBank {
 	};
 
 	public bool Activate(Clip clip) {
-		if (!clip.HasContents)
-			return false;
-
 		switch (clip.Contents) {
+			case null: return false;
 			case Palette:
 				this.activePaletteClip = clip;
 				break;
@@ -121,15 +117,9 @@ sealed class ClipBank {
 
 		return true;
 	}
-	
-	IEnumerable<Clip> ActiveClips {
-		get {
-			var clip = this.activePaletteClip;
-			if (clip != null) yield return clip;
-			clip = this.activePatternClip;
-			if (clip != null) yield return clip;
-		}
-	}
 
-	public bool IsActive(Clip clip) => clip.HasContents && this.ActiveClips.Contains(clip);
+	public bool IsActive(Clip clip) => clip.Contents != null && (
+		clip == this.activePaletteClip
+	 || clip == this.activePatternClip
+	);
 }

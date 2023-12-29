@@ -224,11 +224,22 @@ static class Widgets {
 
 #endregion
 
+#region time
+
+	public static bool TimeFractionEdit() {
+		bool changed = false;
+		
+		return changed;
+	}
+
+#endregion
+
 #region pattern
 
 	public static bool PatternButton(
 		Pattern? pattern,
 		Vector2 size,
+		uint? frameColor = null,
 		bool showTooltip = true,
 		bool draggable = true
 	) {
@@ -240,7 +251,7 @@ static class Widgets {
 		bool isHovered = IsItemHovered();
 		bool isHeld = IsItemActive();
 		
-		uint frameColor = GetColorU32(
+		frameColor ??= GetColorU32(
 			(isHovered, isHeld) switch {
 				(true, true)  => ImGuiCol.ButtonActive,
 				(true, false) => ImGuiCol.ButtonHovered,
@@ -250,7 +261,7 @@ static class Widgets {
 		RenderFrame(
 			p_min: origin,
 			p_max: origin + size,
-			frameColor
+			frameColor.Value
 		);
 		drawList.AddImageOrEmpty(
 			pattern?.TextureId,
@@ -419,7 +430,7 @@ static class Widgets {
 					= ImGuiColorEditFlags.NoAlpha
 					| ImGuiColorEditFlags.InputHSV;
 				SameLine(0, em(1.4f));
-				ColorButton("##edit_current", selectedPoint.color, colorButtonFlags, em(3, 0));
+				ColorButton("##edit_current", (Vector4)selectedPoint.color, colorButtonFlags, em(3, 0));
 
 				RGB revertRgb = state.RevertColor.ToRGB();
 				uint revertButtonColor = revertRgb.ToU32();
@@ -650,7 +661,7 @@ static class Widgets {
 
 	public sealed class SequenceEdit {
 		readonly string id;
-		int selectedIndex = 0;
+		int selectedIndex = -1;
 		
 		public SequenceEdit(string id) {
 			this.id = id;
@@ -661,20 +672,34 @@ static class Widgets {
 			BeginGroup();
 			{
 				Vector2 avail = GetContentRegionAvail();
-				Vector2 slotSize = em(4, 4);
 
+				SetNextItemWidth(em(12));
+				InputText("name", ref sequence.name, Sequence.NameMaxLength);
+				SameLine(0, em(1));
+
+				int numSlots = sequence.Slots.Count;
+				SetNextItemWidth(em(5));
+				if (InputIntClamp(
+					    "slots", ref numSlots,
+					    min: Sequence.SlotsMin, max: Sequence.SlotsMax,
+					    step_fast: 2
+				    )) {
+					sequence.Resize(numSlots);
+				}
+				
+				Vector2 slotSize = em(4, 4);
 				for (var i = 0; i < sequence.Slots.Count; i++) {
 					PushID(i);
 					
 					var slot = sequence.Slots[i];
+					var isActive = slot == sequence.ActiveSlot;
 					var isSelected = i == this.selectedIndex;
 
-					if (isSelected)
-						PushStyleColor(ImGuiCol.Button, GetColorU32(ImGuiCol.ButtonActive));
-					if (PatternButton(slot.pattern, slotSize))
+					uint? frameColor =
+						isActive     ? hsb(60 / 360f).ToU32()
+						: isSelected ? GetColorU32(ImGuiCol.ButtonActive) : null;
+					if (PatternButton(slot.pattern, slotSize, frameColor))
 						this.selectedIndex = i;
-					if (isSelected)
-						PopStyleColor(1);
 
 					if (BeginDragDropTarget() && DragDrop.Accept(out Pattern? pattern)) {
 						slot.pattern = pattern;
@@ -682,7 +707,6 @@ static class Widgets {
 					}
 					
 					SameLine();
-					
 					PopID();
 				}
 			}

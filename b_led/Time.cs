@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Runtime.Serialization;
 
 namespace b_effort.b_led;
 
@@ -33,8 +34,22 @@ readonly record struct Phase(float value) {
 	public static implicit operator float(Phase @this) => @this.value;
 }
 
+[DataContract]
+record struct TimeFraction(int numerator, int denominator) {
+	[DataMember] public int numerator = numerator;
+	[DataMember] public int denominator = denominator;
+
+	public float Value => this.numerator / (float)this.denominator;
+
+	public static explicit operator TimeFraction(float value) =>
+		value < 1
+			? new(1, (int)(1 / value))
+			: new((int)value, 1);
+	public static implicit operator float(TimeFraction @this) => @this.Value;
+}
+
 static class Metronome {
-	public static Tempo tempo = 128;
+	public static Tempo tempo = 60;
 	public static float speed = 1f;
 	
 	static float tLast;

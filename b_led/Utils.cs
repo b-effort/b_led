@@ -35,6 +35,14 @@ static class ImGuiShorthand {
 	[Impl(Inline)] public static int emOdd(float value) => BMath.nearestOdd(value * FontSize);
 
 	public static void SpacingY(float height) => ImGui.Dummy(vec2(0, height));
+
+	public static bool InputIntClamp(string label, ref int v, int min, int max, int step = 1, int step_fast = 10) {
+		if (ImGui.InputInt(label, ref v, step, step_fast)) {
+			v = Math.Clamp(v, min, max);
+			return true;
+		}
+		return false;
+	}
 }
 
 static class ImGuiUtil {

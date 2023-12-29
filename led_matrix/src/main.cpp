@@ -33,13 +33,14 @@ bool connectWiFi(const char* ssid, const char* password) {
 	while (WiFi.status() != WL_CONNECTED) {
 		if (millis() - now > WIFI_TIMEOUT)
 			return false;
+		vTaskDelay(100);
 	}
 	return true;
 }
 
 void connectSavedWiFi() {
 	WiFi.mode(WIFI_STA);
-	delay(100);
+	vTaskDelay(1000);
 
 	AutoConnectCredential cred;
 	station_config_t staConfig;
@@ -130,16 +131,6 @@ extern "C" void app_main() {
 	pinMode(PIN_BUTTON_UP, INPUT_PULLUP);
 	pinMode(PIN_BUTTON_DOWN, INPUT_PULLUP);
 
-	// *** wifi
-	esp_wifi_set_ps(WIFI_PS_NONE);
-	connectSavedWiFi();
-	Serial.print("WiFi Status: ");
-	Serial.println(WiFi.status());
-	if (WiFi.status() == WL_CONNECTED) {
-		Serial.print("IP: ");
-		Serial.println(WiFi.localIP().toString());
-	}
-
 	// *** display
 	matrix_display = new MatrixPanel_I2S_DMA(matrix_config);
 	if (not matrix_display->begin()) {
@@ -165,6 +156,16 @@ extern "C" void app_main() {
 void onWsEvent(WStype_t, byte*, size_t);
 
 void task_web(void* taskParams) {
+	// *** wifi
+	esp_wifi_set_ps(WIFI_PS_NONE);
+	connectSavedWiFi();
+	Serial.print("WiFi Status: ");
+	Serial.println(WiFi.status());
+	if (WiFi.status() == WL_CONNECTED) {
+		Serial.print("IP: ");
+		Serial.println(WiFi.localIP().toString());
+	}
+
 	ws.begin(WS_IP, WS_PORT, WS_PATH);
 	ws.onEvent(onWsEvent);
 	ws.setReconnectInterval(1000);

@@ -18,6 +18,18 @@ using b_effort.b_led;
 
 # Runway
 - ! sequences
+	- create/delete
+	- ! time division
+	- macro keyframes
+- clip banks
+	- clip dragging
+	- rename
+	- switch banks
+	- map to push
+- metronome pause
+- led mapping
+- sound reactive
+	- fft
 - gather config constants
 
 
