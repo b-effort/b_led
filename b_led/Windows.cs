@@ -249,6 +249,44 @@ sealed class ClipsWindow {
 	}
 }
 
+sealed class AudioWindow {
+	static readonly uint color_connected = hsb(120f / 360).ToU32();
+	static readonly uint color_disconnected = hsb(0).ToU32();
+	
+	public void Show() {
+		SetNextWindowSize(em(24, 12), ImGuiCond.FirstUseEver);
+		Begin("audio");
+		{
+			var drawList = GetWindowDrawList();
+
+			bool isDeviceOpen = AudioIn.IsOpen;
+			
+			float radius = em(0.45f);
+			drawList.AddCircleFilled(
+				GetCursorScreenPos() + vec2(radius, radius + Style.ItemSpacing.Y),
+				radius,
+				isDeviceOpen ? color_connected : color_disconnected
+			);
+			Dummy(vec2(radius * 1.8f, radius * 2));
+			
+			SameLine();
+			if (!isDeviceOpen) {
+				if (Button("open device")) {
+					AudioIn.Open();
+				}
+			} else {
+				if (Button("close device")) {
+					AudioIn.Close();
+				}
+				if (Button("asio")) {
+					AudioIn.ShowControlPanel();
+				}
+			}
+		}
+		End();
+	}
+}
+
 sealed class MetronomeWindow {
 	readonly float[] beatPoints = new float[144];
 	int beatOffset = 0;

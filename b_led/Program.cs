@@ -10,8 +10,7 @@ global using rlImGui_cs;
 global using ImGuiNET;
 global using static b_effort.b_led.Color;
 using System.Diagnostics;
-using System.Runtime.Serialization;
-using System.Text.Json.Serialization;
+using System.Threading;
 using b_effort.b_led;
 
 /*
@@ -47,6 +46,11 @@ int height = 1280;
 
 #region init
 
+if (OperatingSystem.IsWindows()) {
+	Thread.CurrentThread.SetApartmentState(ApartmentState.Unknown);
+	Thread.CurrentThread.SetApartmentState(ApartmentState.STA);
+}
+
 rl.SetConfigFlags(ConfigFlags.FLAG_WINDOW_RESIZABLE);
 rl.InitWindow(width, height, "b_led");
 rl.SetTargetFPS(FPS);
@@ -77,6 +81,7 @@ var palettesWindow = new PalettesWindow();
 var patternsWindow = new PatternsWindow();
 var sequencesWindow = new SequencesWindow();
 var clipsWindow = new ClipsWindow();
+var audioWindow = new AudioWindow();
 var metronomeWindow = new MetronomeWindow();
 var macrosWindow = new MacrosWindow();
 var pushWindow = new PushWindow();
@@ -121,6 +126,7 @@ while (!rl.WindowShouldClose()) {
 	deltaTimer.Restart();
 }
 
+AudioIn.Close();
 Push2.Dispose();
 rlImGui.Shutdown();
 rl.CloseWindow();
@@ -156,6 +162,7 @@ void DrawUI() {
 	clipsWindow.Show();
 	sequencesWindow.Show();
 	patternsWindow.Show();
+	audioWindow.Show();
 	metronomeWindow.Show();
 	macrosWindow.Show();
 	// funcPlotterWindow.Show();
