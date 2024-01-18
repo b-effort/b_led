@@ -126,6 +126,7 @@ abstract class Pattern : ClipContents, IDisposable {
 sealed class Sequence : ClipContents {
 	[DataContract]
 	public sealed class Slot {
+		public Pattern? pattern;
 		[DataMember] public Guid? PatternId {
 			get => this.pattern?.Id;
 			init {
@@ -134,17 +135,14 @@ sealed class Sequence : ClipContents {
 			}
 		}
 
-		public Pattern? pattern;
-
-		public bool HasPattern => this.pattern != null;
-
-		public Slot()
-			: this(pattern_id: null) { }
+		public Slot() : this(pattern_id: null) { }
 		
 		[JsonConstructor]
 		public Slot(Guid? pattern_id) {
 			this.PatternId = pattern_id;
 		}
+
+		public bool HasPattern => this.pattern != null;
 	}
 
 	public const int SlotsMin = 2;

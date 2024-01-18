@@ -31,16 +31,17 @@ static class MiscExtensions {
 
 static class ImGuiShorthand {
 	static ImGuiStylePtr? style;
-	public static ImGuiStylePtr Style => style ??= ImGui.GetStyle();
-	public static float FontSize => ImGui.GetFontSize();
+	public static ImGuiStylePtr Style { [Impl(Inline)] get => style ??= ImGui.GetStyle(); }
 
-	[Impl(Inline)] public static float em(float value) => value * FontSize;
+	[Impl(Inline)] public static Vector2 ContentAvail() => ImGui.GetContentRegionAvail();
+
+	[Impl(Inline)] public static float em(float value) => value * ImGui.GetFontSize();
 	[Impl(Inline)] public static Vector2 em(float x, float y) => em(new Vector2(x, y));
-	[Impl(Inline)] public static Vector2 em(Vector2 value) => value * FontSize;
-	[Impl(Inline)] public static int emInt(float value) => (int)MathF.Floor(value * FontSize);
-	[Impl(Inline)] public static int emEven(float value) => BMath.nearestEven(value * FontSize);
-	[Impl(Inline)] public static int emOdd(float value) => BMath.nearestOdd(value * FontSize);
-
+	[Impl(Inline)] public static Vector2 em(Vector2 value) => value * ImGui.GetFontSize();
+	[Impl(Inline)] public static int emInt(float value) => (int)MathF.Floor(value * ImGui.GetFontSize());
+	[Impl(Inline)] public static int emEven(float value) => BMath.nearestEven(value * ImGui.GetFontSize());
+	[Impl(Inline)] public static int emOdd(float value) => BMath.nearestOdd(value * ImGui.GetFontSize());
+	
 	public static void SpacingY(float height) => ImGui.Dummy(vec2(0, height));
 
 	public static bool InputIntClamp(string label, ref int v, int min, int max, int step = 1, int step_fast = 10) {

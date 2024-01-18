@@ -37,3 +37,8 @@ static class BMath {
 
 	public static class fx { }
 }
+
+public record struct Bounds(Vector2 min, Vector2 max) {
+	public Vector2 min = min;
+	public Vector2 max = max;
+}

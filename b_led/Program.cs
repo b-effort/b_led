@@ -15,7 +15,7 @@ using System.Threading;
 using b_effort.b_led;
 
 /*
-
+ 
 # Runway
 - sequences
 	- create/delete
@@ -35,13 +35,9 @@ using b_effort.b_led;
 	- window opening/closing
 - gather config constants
 
-
-# Mapping
-https://electromage.com/docs/intro-to-mapping
-1u = 1cm
-([0, 1]], [0, 1])
-
+# Reminders
 buffers are [y, x] = [y * width + x]
+
  */
 
 const int FPS = 144;
@@ -85,6 +81,7 @@ var palettesWindow = new PalettesWindow();
 var patternsWindow = new PatternsWindow();
 var sequencesWindow = new SequencesWindow();
 var clipsWindow = new ClipsWindow();
+var fixturesWindow = new FixturesWindow();
 var audioWindow = new AudioWindow();
 var metronomeWindow = new MetronomeWindow();
 var macrosWindow = new MacrosWindow();
@@ -166,6 +163,7 @@ void DrawUI() {
 	clipsWindow.Show();
 	sequencesWindow.Show();
 	patternsWindow.Show();
+	fixturesWindow.Show();
 	audioWindow.Show();
 	metronomeWindow.Show();
 	macrosWindow.Show();

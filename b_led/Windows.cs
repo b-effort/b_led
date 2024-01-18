@@ -1,3 +1,4 @@
+using IconFonts;
 using static ImGuiNET.ImGui;
 using static b_effort.b_led.Widgets;
 using static b_effort.b_led.ImGuiShorthand;
@@ -244,6 +245,74 @@ sealed class ClipsWindow {
 				PopStyleVar(1);
 				EndTable();
 			}
+		}
+		End();
+	}
+}
+
+sealed class FixturesWindow {
+	int selectedIndex = 0;
+	Fixture? newFixture = new Fixture("asdf");
+	
+	public void Show() {
+		var templates = Greg.FixtureTemplates;
+		var fixtures = Greg.Fixtures;
+		
+		SetNextWindowSize(em(24, 12), ImGuiCond.FirstUseEver);
+		Begin("fixtures");
+		{
+			Vector2 childSize = vec2((ContentAvail().X - Style.ItemSpacing.X * 2) / 2f, ContentAvail().Y);
+
+			BeginChild("##fixtures", childSize);
+			{
+				SeparatorText("project fixtures");
+
+				{ // # controls
+					if (Button($"{FontAwesome6.Plus} new")) {
+						this.newFixture = new Fixture("new fixture");
+					}
+				}
+
+				// PushStyleColor(ImGuiCol.FrameBg, Vector4.Zero);
+				if (BeginListBox("##list", ContentAvail())) {
+					for (var i = 0; i < fixtures.Count; i++) {
+						var fixture = fixtures[i];
+						var isSelected = i == this.selectedIndex;
+
+						if (Selectable(fixture.name, isSelected))
+							this.selectedIndex = i;
+					}
+
+					EndListBox();
+				}
+				// PopStyleColor(1);
+			}
+			EndChild();
+
+			SameLine(0, Style.ItemSpacing.X * 2);
+			BeginChild("##new_fixture", childSize);
+			{
+				if (this.newFixture is null)
+					goto end_new_fixture;
+
+				SeparatorText("new fixture");
+
+				InputTextWithHint("name", "new fixture...", ref this.newFixture.name, Fixture.NameMaxLength);
+
+				FixtureTemplate? newTemplate = this.newFixture.template;
+				if (BeginCombo("template", newTemplate?.name ?? "none")) {
+					foreach (var template in Greg.FixtureTemplates) {
+						bool isSelected = newTemplate == template;
+						if (Selectable(template.name, isSelected))
+							this.newFixture.template = newTemplate = template;
+						if (isSelected)
+							SetItemDefaultFocus();
+					}
+					EndCombo();
+				}
+			}
+		end_new_fixture: ;
+			EndChild();
 		}
 		End();
 	}

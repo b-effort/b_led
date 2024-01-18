@@ -31,6 +31,7 @@ sealed class Project {
 		new("bank 7"),
 		new("bank 8"),
 	};
+	[DataMember] public List<Fixture> Fixtures { get; private init; } = new();
 
 	void Init() {
 		foreach (var bank in this.ClipBanks)

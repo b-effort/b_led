@@ -17,8 +17,8 @@ record struct Tempo(float bpm) {
 	public static Tempo FromBeatDuration(TimeSpan secondsPerBeat) =>
 		new((float)(60 / secondsPerBeat.TotalSeconds));
 
-	public static implicit operator float(Tempo @this) => @this.bpm;
 	public static implicit operator Tempo(float bpm) => new(bpm);
+	public static implicit operator float(Tempo @this) => @this.bpm;
 
 	public static implicit operator bool(Tempo @this) => @this != Zero;
 

@@ -2,38 +2,109 @@ using System.Buffers;
 using System.Diagnostics.Tracing;
 using System.Net;
 using System.Net.WebSockets;
+using System.Runtime.Serialization;
 using System.Text;
+using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 using JetBrains.Annotations;
 
 namespace b_effort.b_led;
 
-record struct FixtureLEDMap(Vector2[] leds) {
+/*
+https://electromage.com/docs/intro-to-mapping
+1u = 1cm
+([0, 1]], [0, 1])
+ */
+
+delegate LEDMap LEDMapper(Vector2[] leds);
+
+readonly record struct LEDMap(Vector2[] leds) {
 	public readonly Vector2[] leds = leds;
+	public readonly Bounds bounds = GetBounds(leds);
+
+	public int NumLeds => this.leds.Length;
+
+	public static implicit operator LEDMap(Vector2[] value) => new(value);
+
+	static Bounds GetBounds(Vector2[] values) {
+		Vector2 min = new(float.PositiveInfinity), max = new(float.NegativeInfinity);
+
+		foreach (var value in values) {
+			if (value.X < min.X) min.X = value.X;
+			if (value.Y < min.Y) min.Y = value.Y;
+			if (value.X > max.X) max.X = value.X;
+			if (value.Y > max.Y) max.Y = value.Y;
+		}
+
+		return new Bounds(min, max);
+	}
 }
 
 [UsedImplicitly(ImplicitUseKindFlags.InstantiatedNoFixedConstructorSignature, ImplicitUseTargetFlags.WithInheritors)]
-abstract class Fixture {
-	public static readonly Fixture[] All = AppDomain.CurrentDomain.GetAssemblies()
+abstract class FixtureTemplate {
+	public static readonly FixtureTemplate[] All = AppDomain.CurrentDomain.GetAssemblies()
 		.SelectMany(a => a.GetTypes())
-		.Where(t => t.IsSealed && typeof(Fixture).IsAssignableFrom(t))
-		.Select(t => (Fixture)Activator.CreateInstance(t)!)
+		.Where(t => t.IsSealed && typeof(FixtureTemplate).IsAssignableFrom(t))
+		.Select(t => (FixtureTemplate)Activator.CreateInstance(t)!)
 		.ToArray();
 	
-	public readonly string name;
-	public readonly FixtureLEDMap ledMap;
+	public static FixtureTemplate FromId(Guid id) => All.First(f => f.Id == id);
 
-	protected Fixture(FixtureLEDMap ledMap) {
+	public abstract Guid Id { get; }
+
+	public readonly string name;
+	public readonly int numLeds;
+	public readonly LEDMap ledMap;
+	
+	protected FixtureTemplate(int numLeds, LEDMapper mapper) {
 		this.name = this.GetDerivedNameFromType();
-		this.ledMap = ledMap;
+		this.numLeds = numLeds;
+		this.ledMap = mapper(new Vector2[numLeds]);
 	}
+
+	public Bounds Bounds => this.ledMap.bounds;
+	public int NumLeds => this.ledMap.leds.Length;
+}
+
+[DataContract]
+sealed class Fixture {
+	public const int NameMaxLength = 64;
+
+	[DataMember] public Guid Id { get; }
+	[DataMember] public string name;
+
+	public FixtureTemplate? template;
+	[DataMember] public Guid? TemplateId {
+		get => this.template?.Id;
+		init {
+			if (value.HasValue)
+				this.template = FixtureTemplate.FromId(value.Value);
+		}
+	}
+
+	public Fixture(string name) : this(
+		id: Guid.NewGuid(),
+		name,
+		template_id: null
+	) { }
+
+	[JsonConstructor]
+	public Fixture(Guid id, string name, Guid? template_id) {
+		this.Id = id;
+		this.name = name;
+		this.TemplateId = template_id;
+	}
+	
+	public bool HasTemplate => this.template != null;
+	public Bounds? Bounds => this.template?.Bounds;
 }
 
 // I could make a separate FixtureManager ...but I hate that
 // anyways, greg's more than up for the task
 static partial class Greg {
-	public static Fixture[] Fixtures => Fixture.All;
+	public static FixtureTemplate[] FixtureTemplates => FixtureTemplate.All;
+	public static List<Fixture> Fixtures => project.Fixtures;
 }
 
 static class FixtureServer {

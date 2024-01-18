@@ -297,12 +297,11 @@ sealed class Palette : ClipContents {
 	public readonly GradientPreview preview;
 	public nint? TextureId => this.preview.TextureId;
 
-	public Palette(string name = "new palette", Gradient? gradient = null)
-		: this(
-			id: Guid.NewGuid(),
-			name,
-			gradient ?? new Gradient()
-		) { }
+	public Palette(string name = "new palette", Gradient? gradient = null) : this(
+		id: Guid.NewGuid(),
+		name,
+		gradient ?? new Gradient()
+	) { }
 
 	[JsonConstructor]
 	public Palette(Guid id, string name, Gradient gradient) {
