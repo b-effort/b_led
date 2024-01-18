@@ -5,11 +5,37 @@ using System.Net.WebSockets;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using JetBrains.Annotations;
 
 namespace b_effort.b_led;
 
-// TODO: simplify, use HttpListener directly
-// https://github.com/paulbatum/WebSocket-Samples/blob/master/HttpListenerWebSocketEcho/Server/Server.cs
+record struct FixtureLEDMap(Vector2[] leds) {
+	public readonly Vector2[] leds = leds;
+}
+
+[UsedImplicitly(ImplicitUseKindFlags.InstantiatedNoFixedConstructorSignature, ImplicitUseTargetFlags.WithInheritors)]
+abstract class Fixture {
+	public static readonly Fixture[] All = AppDomain.CurrentDomain.GetAssemblies()
+		.SelectMany(a => a.GetTypes())
+		.Where(t => t.IsSealed && typeof(Fixture).IsAssignableFrom(t))
+		.Select(t => (Fixture)Activator.CreateInstance(t)!)
+		.ToArray();
+	
+	public readonly string name;
+	public readonly FixtureLEDMap ledMap;
+
+	protected Fixture(string name, FixtureLEDMap ledMap) {
+		this.name = name;
+		this.ledMap = ledMap;
+	}
+}
+
+// I could make a separate FixtureManager ...but I hate that
+// anyways, greg's more than up for the task
+static partial class Greg {
+	public static Fixture[] Fixtures { get; set; } = Array.Empty<Fixture>();
+}
+
 static class FixtureServer {
 	enum MessageType : byte {
 		GetId = 0,

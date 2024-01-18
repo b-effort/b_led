@@ -56,8 +56,6 @@ static partial class Greg {
 		ActiveClipBank = ClipBanks[0];
 	}
 	
-	// public static LEDMapper[] LEDMappers { get; set; } = Array.Empty<LEDMapper>();
-
 	public static readonly RGB[,] outputBuffer = new RGB[BufferWidth, BufferWidth];
 
 	public static void Update() {
