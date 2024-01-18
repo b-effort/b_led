@@ -1,3 +1,6 @@
 [submodule "modules/rlImGui-cs"]
 	path = modules/rlImGui-cs
 	url = https://github.com/b-effort/rlImGui-cs.git
+[submodule "modules/SharpFFTW"]
+	path = modules/SharpFFTW
+	url = https://github.com/wo80/SharpFFTW.git

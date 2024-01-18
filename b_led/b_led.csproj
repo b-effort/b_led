@@ -23,6 +23,7 @@
 
     <ItemGroup>
         <ProjectReference Include="..\modules\rlImGui-cs\rlImGui\rlImGui.csproj" />
+        <ProjectReference Include="..\modules\SharpFFTW\SharpFFTW\SharpFFTW.csproj" />
     </ItemGroup>
 
     <ItemGroup>

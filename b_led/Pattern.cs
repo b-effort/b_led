@@ -17,6 +17,8 @@ static class PatternScript {
 	}
 	public static float square(float x) => pulse(x + 0.5f, 0.5f);
 	public static float pulse(float x, float dutyCycle) => x % 1 >= 1 - (dutyCycle % 1) ? 1f : 0f;
+	
+	// todo: harmonic series
 
 	public static class beat {
 		public static float saw(float beats = 1f, float phase = 0f) => PatternScript.saw(interval(beats) + phase);

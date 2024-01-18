@@ -8,6 +8,7 @@ global using rl = Raylib_cs.Raylib;
 global using rlColor = Raylib_cs.Color;
 global using rlImGui_cs;
 global using ImGuiNET;
+global using fftw = SharpFFTW.Single;
 global using static b_effort.b_led.Color;
 using System.Diagnostics;
 using System.Threading;
