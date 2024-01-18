@@ -3,8 +3,10 @@ namespace b_effort.b_led.patterns;
 using static BMath;
 using static PatternScript;
 
-sealed class TestPattern : Pattern {
-	public TestPattern() {
+sealed class Pattern_Test : Pattern {
+	public override Guid Id { get; } = new("0579a129-4dcf-4cf3-b392-92306d53c96d");
+	
+	public Pattern_Test() {
 		this.m1 = new Macro { Name = "threshold", Value = 0.1f };
 	}
 
@@ -27,7 +29,9 @@ sealed class TestPattern : Pattern {
 	}
 }
 
-sealed class EdgeBurstPattern : Pattern {
+sealed class Pattern_EdgeBurst : Pattern {
+	public override Guid Id { get; } = new("3a42dd0f-4147-4e96-88b4-b834401c20fe");
+	
 	protected override HSB Render(int i, float x, float y) {
 		float t1 = beat.triangle(2f);
 		float edge = clamp(triangle(x) + t1 * 4 - 2);
@@ -38,7 +42,9 @@ sealed class EdgeBurstPattern : Pattern {
 	}
 }
 
-sealed class HSBDemoPattern : Pattern {
+sealed class Pattern_HSBDemo : Pattern {
+	public override Guid Id { get; } = new("4b3a479f-e41d-4541-a778-734b321d0917");
+	
 	protected override HSB Render(int i, float x, float y) {
 		return hsb(
 			h: x,

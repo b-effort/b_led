@@ -60,9 +60,9 @@ abstract class Pattern : ClipContents, IDisposable {
 		.Select(t => (Pattern)Activator.CreateInstance(t)!)
 		.ToArray();
 
-	public static Pattern FromId(string id) => All.First(p => p.Id == id);
+	public static Pattern FromId(Guid id) => All.First(p => p.Id == id);
 	
-	public string Id => this.name;
+	public abstract Guid Id { get; }
 
 	public readonly string name;
 	
@@ -85,7 +85,7 @@ abstract class Pattern : ClipContents, IDisposable {
 	nint? ClipContents.TextureId => this.TextureId;
 
 	protected Pattern() {
-		this.name = this.GetType().Name.Replace("Pattern", null);
+		this.name = this.GetDerivedNameFromType();
 		this.pixels = new HSB[Width, Width];
 		this.texture = RaylibUtil.CreateTexture(Width, Height, out this.texturePixels);
 	}
@@ -126,11 +126,11 @@ abstract class Pattern : ClipContents, IDisposable {
 sealed class Sequence : ClipContents {
 	[DataContract]
 	public sealed class Slot {
-		[DataMember] public string? PatternId {
+		[DataMember] public Guid? PatternId {
 			get => this.pattern?.Id;
 			init {
-				if (value != null)
-					this.pattern = Pattern.FromId(value);
+				if (value.HasValue)
+					this.pattern = Pattern.FromId(value.Value);
 			}
 		}
 
@@ -142,7 +142,7 @@ sealed class Sequence : ClipContents {
 			: this(pattern_id: null) { }
 		
 		[JsonConstructor]
-		public Slot(string? pattern_id) {
+		public Slot(Guid? pattern_id) {
 			this.PatternId = pattern_id;
 		}
 	}
@@ -151,7 +151,7 @@ sealed class Sequence : ClipContents {
 	public const int SlotsMax = 16;
 	public const int NameMaxLength = 64;
 	
-	[DataMember] public string Id { get; }
+	[DataMember] public Guid Id { get; }
 	[DataMember] public string name;
 	[DataMember] public TimeFraction slotDuration;
 	
@@ -159,14 +159,14 @@ sealed class Sequence : ClipContents {
 	public IReadOnlyList<Slot> Slots => this.slots;
 
 	public Sequence(string name = "new sequence") : this(
-		id: Guid.NewGuid().ToString(),
+		id: Guid.NewGuid(),
 		name,
 		slots: Enumerable.Range(0, 8).Select(_ => new Slot()).ToList(),
 		slot_duration: new TimeFraction(1, 4)
 	) { }
 
 	[JsonConstructor]
-	public Sequence(string id, string name, List<Slot> slots, TimeFraction slot_duration) {
+	public Sequence(Guid id, string name, List<Slot> slots, TimeFraction slot_duration) {
 		this.Id = id;
 		this.name = name;
 		this.slots = slots;

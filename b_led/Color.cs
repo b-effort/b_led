@@ -289,7 +289,7 @@ sealed class GradientPreview : IDisposable {
 
 [DataContract]
 sealed class Palette : ClipContents {
-	[DataMember] public string Id { get; }
+	[DataMember] public Guid Id { get; }
 
 	[DataMember] public string name;
 	[DataMember] public readonly Gradient gradient;
@@ -299,13 +299,13 @@ sealed class Palette : ClipContents {
 
 	public Palette(string name = "new palette", Gradient? gradient = null)
 		: this(
-			id: Guid.NewGuid().ToString(),
+			id: Guid.NewGuid(),
 			name,
 			gradient ?? new Gradient()
 		) { }
 
 	[JsonConstructor]
-	public Palette(string id, string name, Gradient gradient) {
+	public Palette(Guid id, string name, Gradient gradient) {
 		this.Id = id;
 		this.name = name;
 		this.gradient = gradient;

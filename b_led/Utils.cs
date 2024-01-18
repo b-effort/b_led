@@ -22,6 +22,13 @@ static class VectorExtensions {
 	public static Vector2 Floor(this Vector2 @this) => vec2(MathF.Floor(@this.X), MathF.Floor(@this.Y));
 }
 
+static class MiscExtensions {
+	public static string GetDerivedNameFromType(this object @this) {
+		var type = @this.GetType();
+		return type.Name.Replace(type.BaseType!.Name, null).Trim('_');
+	}
+}
+
 static class ImGuiShorthand {
 	static ImGuiStylePtr? style;
 	public static ImGuiStylePtr Style => style ??= ImGui.GetStyle();

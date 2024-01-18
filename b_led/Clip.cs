@@ -4,7 +4,7 @@ using System.Text.Json.Serialization;
 namespace b_effort.b_led; 
 
 interface ClipContents {
-	string Id { get; }
+	Guid Id { get; }
 	nint? TextureId { get; }
 }
 
@@ -18,7 +18,7 @@ sealed class Clip {
 	}
 	
 	[DataMember] ContentsType contentsType;
-	[DataMember] string? contentsId;
+	[DataMember] Guid? contentsId;
 
 	ClipContents? contents;
 	public ClipContents? Contents {
@@ -43,7 +43,7 @@ sealed class Clip {
 				this.Contents = project.Palettes.First(p => p.Id == this.contentsId);
 				break;
 			case ContentsType.Pattern:
-				this.Contents = Pattern.FromId(this.contentsId!);
+				this.Contents = Pattern.FromId(this.contentsId!.Value);
 				break;
 			case ContentsType.Sequence:
 				this.Contents = project.Sequences.First(s => s.Id == this.contentsId);

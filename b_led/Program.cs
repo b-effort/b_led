@@ -30,6 +30,9 @@ using b_effort.b_led;
 - ! led mapping
 - sound reactive
 	- fft
+- ui
+	- remember selected tabs
+	- window opening/closing
 - gather config constants
 
 

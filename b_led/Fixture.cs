@@ -24,8 +24,8 @@ abstract class Fixture {
 	public readonly string name;
 	public readonly FixtureLEDMap ledMap;
 
-	protected Fixture(string name, FixtureLEDMap ledMap) {
-		this.name = name;
+	protected Fixture(FixtureLEDMap ledMap) {
+		this.name = this.GetDerivedNameFromType();
 		this.ledMap = ledMap;
 	}
 }
@@ -33,7 +33,7 @@ abstract class Fixture {
 // I could make a separate FixtureManager ...but I hate that
 // anyways, greg's more than up for the task
 static partial class Greg {
-	public static Fixture[] Fixtures { get; set; } = Array.Empty<Fixture>();
+	public static Fixture[] Fixtures => Fixture.All;
 }
 
 static class FixtureServer {
