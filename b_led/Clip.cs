@@ -1,7 +1,7 @@
 using System.Runtime.Serialization;
 using System.Text.Json.Serialization;
 
-namespace b_effort.b_led; 
+namespace b_effort.b_led;
 
 interface ClipContents {
 	Guid Id { get; }
@@ -16,7 +16,7 @@ sealed class Clip {
 		Pattern,
 		Sequence,
 	}
-	
+
 	[DataMember] ContentsType contentsType;
 	[DataMember] Guid? contentsId;
 
@@ -60,10 +60,22 @@ sealed class ClipBank {
 
 	[DataMember] public string name;
 	[DataMember] public readonly Clip[][] clips;
-	
+
+	[JsonConstructor]
+	public ClipBank(string name, Clip[][] clips) {
+		this.name = name;
+
+		int rows = clips.Length;
+		int cols = clips[0].Length;
+		if (rows != NumRows || cols != NumCols) {
+			throw new Exception($"Invalid clips dimensions. rows={rows}, cols={cols}");
+		}
+		this.clips = clips;
+	}
+
 	public ClipBank(string name) {
 		this.name = name;
-		
+
 		this.clips = new Clip[NumRows][];
 		for (var y = 0; y < NumRows; y++) {
 			this.clips[y] = new Clip[NumCols];
@@ -73,24 +85,12 @@ sealed class ClipBank {
 		}
 	}
 
-	[JsonConstructor]
-	public ClipBank(string name, Clip[][] clips) {
-		this.name = name;
-		
-		int rows = clips.Length;
-		int cols = clips[0].Length;
-		if (rows != NumRows || cols != NumCols) {
-			throw new Exception($"Invalid clips dimensions. rows={rows}, cols={cols}");
-		}
-		this.clips = clips;
-	}
-
 	internal void InitClips(Project project) {
 		foreach (var clip in this.clips.SelectMany(x => x)) {
 			clip.InitContents(project);
 		}
 	}
-	
+
 	Clip? activePaletteClip;
 	Clip? activePatternClip;
 

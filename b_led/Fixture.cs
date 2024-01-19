@@ -11,6 +11,15 @@ using JetBrains.Annotations;
 
 namespace b_effort.b_led;
 
+/* !plan
+- fixture owns buffer and led map
+- greg comps buffers into full preview
+- pattern renders directly to fixture buffer
+	- crop render x,y when pattern spans multiple fixtures
+- pattern has separate preview buffer
+- clip specifies which fixture groups to play on
+ */
+
 /*
 https://electromage.com/docs/intro-to-mapping
 1u = 1cm
@@ -48,56 +57,61 @@ abstract class FixtureTemplate {
 		.Where(t => t.IsSealed && typeof(FixtureTemplate).IsAssignableFrom(t))
 		.Select(t => (FixtureTemplate)Activator.CreateInstance(t)!)
 		.ToArray();
-	
+
 	public static FixtureTemplate FromId(Guid id) => All.First(f => f.Id == id);
 
 	public abstract Guid Id { get; }
 
 	public readonly string name;
-	public readonly int numLeds;
-	public readonly LEDMap ledMap;
-	
-	protected FixtureTemplate(int numLeds, LEDMapper mapper) {
-		this.name = this.GetDerivedNameFromType();
-		this.numLeds = numLeds;
-		this.ledMap = mapper(new Vector2[numLeds]);
-	}
+	public readonly LEDMapper mapper;
 
-	public Bounds Bounds => this.ledMap.bounds;
-	public int NumLeds => this.ledMap.leds.Length;
+	protected FixtureTemplate(LEDMapper mapper) {
+		this.mapper = mapper;
+		this.name = this.GetDerivedNameFromType(trimPrefix: "Fixture");
+	}
 }
 
 [DataContract]
 sealed class Fixture {
-	public const int NameMaxLength = 64;
+	public const int Name_MaxLength = 64;
+	public const int NetworkId_MaxLength = 64;
 
 	[DataMember] public Guid Id { get; }
 	[DataMember] public string name;
-
-	public FixtureTemplate? template;
-	[DataMember] public Guid? TemplateId {
-		get => this.template?.Id;
-		init {
-			if (value.HasValue)
-				this.template = FixtureTemplate.FromId(value.Value);
-		}
-	}
-
-	public Fixture(string name) : this(
-		id: Guid.NewGuid(),
-		name,
-		template_id: null
-	) { }
+	[DataMember] public List<string> groups;
+	public FixtureTemplate? template = null;
+	[DataMember] public Guid? TemplateId => this.template?.Id;
+	[DataMember] public string networkId;
+	[DataMember] public int numLeds;
+	// for fixtures with multiple sub-fixtures
+	[DataMember] public int startingLedOffset;
+	// world coordinates
+	// world anchor
 
 	[JsonConstructor]
-	public Fixture(Guid id, string name, Guid? template_id) {
+	public Fixture(
+		Guid id,
+		string name,
+		List<string>? groups = null,
+		Guid? template_id = null,
+		string network_id = "",
+		int num_leds = 0,
+		int starting_led_offset = 0
+	) {
 		this.Id = id;
 		this.name = name;
-		this.TemplateId = template_id;
+		this.groups = groups ?? new List<string>();
+		if (template_id.HasValue)
+			this.template = FixtureTemplate.FromId(template_id.Value);
+		this.networkId = network_id;
+		this.numLeds = num_leds;
+		this.startingLedOffset = starting_led_offset;
 	}
-	
-	public bool HasTemplate => this.template != null;
-	public Bounds? Bounds => this.template?.Bounds;
+
+	public Fixture(string name = "") : this(
+		id: Guid.NewGuid(),
+		name
+	) { }
 }
 
 // I could make a separate FixtureManager ...but I hate that
@@ -105,6 +119,8 @@ sealed class Fixture {
 static partial class Greg {
 	public static FixtureTemplate[] FixtureTemplates => FixtureTemplate.All;
 	public static List<Fixture> Fixtures => project.Fixtures;
+
+	public static void AddFixture(Fixture fixture) => Fixtures.Add(fixture);
 }
 
 static class FixtureServer {
@@ -117,7 +133,7 @@ static class FixtureServer {
 	const string Address = "http://+:42000/b_led/";
 	static readonly HttpListener httpListener = new();
 	static readonly Dictionary<string, WebSocket> clients = new();
-	
+
 	const int FPS = 60;
 	const float FrameTimeTarget = 1f / FPS;
 	static float frameTime = 0f;
@@ -129,7 +145,7 @@ static class FixtureServer {
 	public static void Start() {
 		httpListener.Prefixes.Add(Address);
 		httpListener.Start();
-		
+
 		acceptClientsTask = Task.Run(LoopAcceptClients);
 		sendTask = Task.Run(LoopSend);
 	}
@@ -141,40 +157,39 @@ static class FixtureServer {
 			sendFrameEvent.Set();
 		}
 	}
-	
+
 	static async Task LoopAcceptClients() {
 		while (httpListener.IsListening) {
 			var ctx = await httpListener.GetContextAsync();
-			
+
 			if (!ctx.Request.IsWebSocketRequest) {
 				ctx.Response.StatusCode = 400;
 				ctx.Response.Close();
 				continue;
 			}
-			
+
 			try {
 				var wsCtx = await ctx.AcceptWebSocketAsync(subProtocol: null);
 				var client = wsCtx.WebSocket;
 				Console.WriteLine($"Client connected: {ctx.Request.RemoteEndPoint.Serialize()}");
 
 				await client.SendAsync(new[] { (byte)MessageType.GetId }, WebSocketMessageType.Binary, true, CancellationToken.None);
-				
-				byte[] idBuffer = ArrayPool<byte>.Shared.Rent(128);
+
+				byte[] idBuffer = ArrayPool<byte>.Shared.Rent(Fixture.NetworkId_MaxLength * 2 + 1);
 				var idResponse = await client.ReceiveAsync(idBuffer, CancellationToken.None);
 				string id = Encoding.UTF8.GetString(idBuffer, 1, idResponse.Count - 1);
 				Console.WriteLine($"Fixture ID: {id}");
-				
+
 				clients[id] = client;
-				
+
 			} catch (Exception ex) {
 				Console.WriteLine($"ERROR: Failed to accept client {ex}");
 				ctx.Response.StatusCode = 500;
 				ctx.Response.Close();
 			}
 		}
-		// ReSharper disable once FunctionNeverReturns
 	}
-	
+
 	const int SendBufferSize = Greg.BufferWidth * Greg.BufferWidth * 3 + 1;
 	static readonly byte[] sendBuffer = new byte[SendBufferSize];
 
@@ -205,7 +220,6 @@ static class FixtureServer {
 				}
 			}
 		}
-		// ReSharper disable once FunctionNeverReturns
 	}
 }
 
@@ -213,7 +227,7 @@ sealed class DebugSocketEventListener : EventListener {
 	protected override void OnEventSourceCreated(EventSource eventSource) {
 		Console.WriteLine($"source {eventSource.Name}");
 		if (
-			eventSource.Name is "Private.InternalDiagnostics.System.Net.HttpListener" 
+			eventSource.Name is "Private.InternalDiagnostics.System.Net.HttpListener"
 		                     or "Private.InternalDiagnostics.System.Net.Sockets"
 		) {
 			this.EnableEvents(eventSource, EventLevel.LogAlways);

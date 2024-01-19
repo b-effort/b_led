@@ -19,13 +19,21 @@ static class VectorShorthand {
 }
 
 static class VectorExtensions {
+	public static Vector2 Add(this Vector2 @this, float x = 0f, float y = 0f) {
+		if (x != 0f) @this.X += x;
+		if (y != 0f) @this.Y += y;
+
+		return @this;
+	}
+
 	public static Vector2 Floor(this Vector2 @this) => vec2(MathF.Floor(@this.X), MathF.Floor(@this.Y));
 }
 
 static class MiscExtensions {
-	public static string GetDerivedNameFromType(this object @this) {
+	public static string GetDerivedNameFromType(this object @this, string? trimPrefix = null) {
 		var type = @this.GetType();
-		return type.Name.Replace(type.BaseType!.Name, null).Trim('_');
+		trimPrefix ??= type.BaseType!.Name;
+		return type.Name.Replace(trimPrefix, null).Trim('_');
 	}
 }
 
@@ -41,7 +49,7 @@ static class ImGuiShorthand {
 	[Impl(Inline)] public static int emInt(float value) => (int)MathF.Floor(value * ImGui.GetFontSize());
 	[Impl(Inline)] public static int emEven(float value) => BMath.nearestEven(value * ImGui.GetFontSize());
 	[Impl(Inline)] public static int emOdd(float value) => BMath.nearestOdd(value * ImGui.GetFontSize());
-	
+
 	public static void SpacingY(float height) => ImGui.Dummy(vec2(0, height));
 
 	public static bool InputIntClamp(string label, ref int v, int min, int max, int step = 1, int step_fast = 10) {
@@ -79,7 +87,7 @@ static class ImGuiUtil {
 
 	public static void AddImageOrEmpty(this ImDrawListPtr drawList, nint? textureId, Vector2 p_min, Vector2 p_max) {
 		uint bgColor = ImGui.GetColorU32(ImGuiCol.WindowBg);
-		
+
 		if (textureId.HasValue) {
 			drawList.AddImage(textureId.Value, p_min, p_max);
 		} else {

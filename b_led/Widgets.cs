@@ -9,7 +9,7 @@ namespace b_effort.b_led;
 
 static class DragDrop {
 	static object? s_payload = null;
-	
+
 	public static bool Accept<T>([NotNullWhen(true)] out T? payload)
 		where T : class {
 		if (AcceptDragDropPayload(typeof(T).Name).WasAccepted()) {
@@ -46,14 +46,14 @@ static class DragDrop {
 			EndDragDropSource();
 		}
 	}
-	
+
 	public static void SourceSequence(Sequence sequence) {
 		if (BeginSource(sequence)) {
 			Text(sequence.name);
 			EndDragDropSource();
 		}
 	}
-	
+
 	static unsafe bool WasAccepted(this ImGuiPayloadPtr payload) => payload.NativePtr != (void*)0;
 }
 
@@ -228,7 +228,7 @@ static class Widgets {
 
 	public static bool TimeFractionEdit() {
 		bool changed = false;
-		
+
 		return changed;
 	}
 
@@ -250,7 +250,7 @@ static class Widgets {
 		bool changed = InvisibleButton("##button", size);
 		bool isHovered = IsItemHovered();
 		bool isHeld = IsItemActive();
-		
+
 		frameColor ??= GetColorU32(
 			(isHovered, isHeld) switch {
 				(true, true)  => ImGuiCol.ButtonActive,
@@ -272,7 +272,7 @@ static class Widgets {
 			if (isHovered && showTooltip) {
 				SetTooltip(pattern.name);
 			}
-			
+
 			if (draggable)
 				DragDrop.SourcePattern(pattern);
 		}
@@ -281,13 +281,13 @@ static class Widgets {
 	}
 
 #endregion
-	
+
 #region gradient
 
 	public sealed class GradientEditState {
 		public GradientPreview GradientPreview { get; set; } = null!;
 		Gradient Gradient => this.GradientPreview.gradient;
-		public nint TextureId => this.GradientPreview.TextureId; 
+		public nint TextureId => this.GradientPreview.TextureId;
 
 		public int SelectedIndex { get; private set; } = -1;
 		public Gradient.Point SelectedPoint => this.Gradient.Points[this.SelectedIndex];
@@ -318,7 +318,7 @@ static class Widgets {
 		} else if (state.SelectedIndex > gradient.Points.Count - 1) {
 			state.Select(gradient.Points.Count - 1);
 		}
-		
+
 		int barHeight = emEven(1);
 		float marginX = emEven(0.2f);
 		float markerWidth = emOdd(0.6f);
@@ -350,7 +350,7 @@ static class Widgets {
 				bool mouseLeftDown = IsMouseDown(ImGuiMouseButton.Left);
 				bool mouseRightClicked = IsMouseClicked(ImGuiMouseButton.Right);
 				bool mouseDragging = IsMouseDragging(ImGuiMouseButton.Left);
-				
+
 				var points = gradient.Points;
 				for (var i = 0; i < points.Count; i++) {
 					var point = points[i];
@@ -446,7 +446,7 @@ static class Widgets {
 				}
 				PopStyleColor(5);
 				PopStyleVar(1);
-				
+
 				SameLine(0, em(1));
 				if (Button(FontAwesome6.Trash)) {
 					gradient.RemoveAt(state.SelectedIndex);
@@ -662,7 +662,7 @@ static class Widgets {
 	public sealed class SequenceEdit {
 		readonly string id;
 		int selectedIndex = -1;
-		
+
 		public SequenceEdit(string id) {
 			this.id = id;
 		}
@@ -674,7 +674,7 @@ static class Widgets {
 				Vector2 avail = GetContentRegionAvail();
 
 				SetNextItemWidth(em(12));
-				InputText("name", ref sequence.name, Sequence.NameMaxLength);
+				InputText("name", ref sequence.name, Sequence.Name_MaxLength);
 				SameLine(0, em(1));
 
 				int numSlots = sequence.Slots.Count;
@@ -686,11 +686,11 @@ static class Widgets {
 				    )) {
 					sequence.Resize(numSlots);
 				}
-				
+
 				Vector2 slotSize = em(4, 4);
 				for (var i = 0; i < sequence.Slots.Count; i++) {
 					PushID(i);
-					
+
 					var slot = sequence.Slots[i];
 					var isActive = slot == sequence.ActiveSlot;
 					var isSelected = i == this.selectedIndex;
@@ -705,7 +705,7 @@ static class Widgets {
 						slot.pattern = pattern;
 						EndDragDropTarget();
 					}
-					
+
 					SameLine();
 					PopID();
 				}

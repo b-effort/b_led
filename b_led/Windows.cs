@@ -54,9 +54,9 @@ sealed class PalettesWindow {
 		{
 			if (this.selectedPalette != null)
 				GradientEdit("selected_palette", this.selectedPalette.preview, this.editState);
-			
+
 			SeparatorText("all palettes");
-			PushStyleColor(ImGuiCol.FrameBg, Vector4.Zero); 
+			PushStyleColor(ImGuiCol.FrameBg, Vector4.Zero);
 			if (BeginListBox("##palettes_list", GetContentRegionAvail())) {
 				int barHeight = emEven(1.5f);
 				float width = GetContentRegionAvail().X - Style.FramePadding.X * 2;
@@ -79,7 +79,7 @@ sealed class PalettesWindow {
 
 					DragDrop.SourcePalette(palette);
 				}
-				
+
 				EndListBox();
 			}
 			PopStyleColor(1);
@@ -90,7 +90,7 @@ sealed class PalettesWindow {
 
 sealed class PatternsWindow {
 	Pattern? selectedPattern;
-	
+
 	public void Show() {
 		SetNextWindowSize(em(24, 12), ImGuiCond.FirstUseEver);
 		Begin("patterns");
@@ -102,15 +102,15 @@ sealed class PatternsWindow {
 
 			if (numCols < 1)
 				return;
-			
+
 			var patterns = Greg.Patterns;
 			int numRows = (int)MathF.Ceiling((float)patterns.Length / numCols);
 			Vector2 patternSize = vec2(MathF.Floor(avail.X / numCols) - cellMargin);
 			float rowHeight = patternSize.Y + cellMargin;
-			
+
 			if (BeginTable("patterns_table", numCols, 0, avail)) {
 				PushStyleVar(ImGuiStyleVar.CellPadding, 0);
-				
+
 				for (int row = 0, i = 0; row < numRows; row++) {
 					TableNextRow(0, rowHeight);
 					PushID(row);
@@ -123,7 +123,7 @@ sealed class PatternsWindow {
 						uint? frameColor = isSelected ? GetColorU32(ImGuiCol.ButtonActive) : null;
 						if (PatternButton(pattern, patternSize, frameColor))
 							this.selectedPattern = pattern;
-							
+
 						PopID();
 					}
 					PopID();
@@ -143,7 +143,7 @@ sealed class SequencesWindow {
 
 	public void Show() {
 		var sequences = Greg.Sequences;
-		
+
 		SetNextWindowSize(em(24, 12), ImGuiCond.FirstUseEver);
 		Begin("sequences");
 		{
@@ -162,7 +162,7 @@ sealed class SequencesWindow {
 
 					if (Selectable(sequence.Label, isSelected))
 						this.selectedIndex = i;
-					
+
 					DragDrop.SourceSequence(sequence);
 				}
 
@@ -180,7 +180,7 @@ sealed class ClipsWindow {
 		Begin("clips");
 		{
 			var drawList = GetWindowDrawList();
-			
+
 			var clipBank = Greg.ActiveClipBank;
 			if (clipBank is null)
 				return;
@@ -205,7 +205,7 @@ sealed class ClipsWindow {
 						PushID(i);
 						var clip = clips[row][col];
 						var origin = GetCursorScreenPos();
-						
+
 						if (InvisibleButton(string.Empty, clipSize)) {
 							clipBank.Activate(clip);
 						}
@@ -228,7 +228,7 @@ sealed class ClipsWindow {
 							p_min: origin + clipBorder,
 							p_max: origin + clipSize - clipBorder
 						);
-						
+
 						if (BeginDragDropTarget()) {
 							if (DragDrop.Accept(out Palette? palette)) {
 								clip.Contents = palette;
@@ -251,36 +251,32 @@ sealed class ClipsWindow {
 }
 
 sealed class FixturesWindow {
-	int selectedIndex = 0;
-	Fixture? newFixture = new Fixture("asdf");
-	
+	Fixture? selectedFixture = null;
+	Fixture? newFixture = null;
+
+	static FixtureTemplate[] Templates => Greg.FixtureTemplates;
+
 	public void Show() {
-		var templates = Greg.FixtureTemplates;
 		var fixtures = Greg.Fixtures;
-		
+
 		SetNextWindowSize(em(24, 12), ImGuiCond.FirstUseEver);
 		Begin("fixtures");
 		{
-			Vector2 childSize = vec2((ContentAvail().X - Style.ItemSpacing.X * 2) / 2f, ContentAvail().Y);
+			float childSpacing = em(1);
+			Vector2 childSize = vec2((ContentAvail().X - childSpacing) / 2f, ContentAvail().Y);
 
 			BeginChild("##fixtures", childSize);
 			{
-				SeparatorText("project fixtures");
-
-				{ // # controls
-					if (Button($"{FontAwesome6.Plus} new")) {
-						this.newFixture = new Fixture("new fixture");
-					}
+				if (Button($"{FontAwesome6.Plus} new")) {
+					this.newFixture = new Fixture();
 				}
 
 				// PushStyleColor(ImGuiCol.FrameBg, Vector4.Zero);
 				if (BeginListBox("##list", ContentAvail())) {
-					for (var i = 0; i < fixtures.Count; i++) {
-						var fixture = fixtures[i];
-						var isSelected = i == this.selectedIndex;
-
+					foreach (Fixture fixture in fixtures) {
+						bool isSelected = fixture == this.selectedFixture;
 						if (Selectable(fixture.name, isSelected))
-							this.selectedIndex = i;
+							this.selectedFixture = fixture;
 					}
 
 					EndListBox();
@@ -289,39 +285,59 @@ sealed class FixturesWindow {
 			}
 			EndChild();
 
-			SameLine(0, Style.ItemSpacing.X * 2);
-			BeginChild("##new_fixture", childSize);
+			SameLine(0, childSpacing);
+			BeginChild("##edit", childSize);
 			{
-				if (this.newFixture is null)
-					goto end_new_fixture;
-
-				SeparatorText("new fixture");
-
-				InputTextWithHint("name", "new fixture...", ref this.newFixture.name, Fixture.NameMaxLength);
-
-				FixtureTemplate? newTemplate = this.newFixture.template;
-				if (BeginCombo("template", newTemplate?.name ?? "none")) {
-					foreach (var template in Greg.FixtureTemplates) {
-						bool isSelected = newTemplate == template;
-						if (Selectable(template.name, isSelected))
-							this.newFixture.template = newTemplate = template;
-						if (isSelected)
-							SetItemDefaultFocus();
-					}
-					EndCombo();
+				if (this.newFixture != null) {
+					FixtureEdit(ref this.newFixture, isNew: true);
+				} else if (this.selectedFixture != null) {
+					// todo: store initial state on edit start, only modify on save (maybe use record type copy ctor)
+					FixtureEdit(ref this.selectedFixture);
 				}
 			}
-		end_new_fixture: ;
 			EndChild();
 		}
 		End();
+	}
+
+	static void FixtureEdit(ref Fixture? fixture, bool isNew = false) {
+		SeparatorText(isNew ? "new fixture" : fixture!.name);
+
+		PushItemWidth(em(-12));
+		InputTextWithHint("name", "fixture", ref fixture!.name, Fixture.Name_MaxLength);
+
+		if (BeginCombo("template", fixture.template?.name)) {
+			foreach (var template in Templates) {
+				bool isSelected = template == fixture.template;
+				if (Selectable(template.name, isSelected))
+					fixture.template = template;
+				if (isSelected)
+					SetItemDefaultFocus();
+			}
+			EndCombo();
+		}
+
+		InputText("network id", ref fixture.networkId, Fixture.NetworkId_MaxLength);
+		InputIntClamp("starting led offset", ref fixture.startingLedOffset, min: 0, max: 1 << 16);
+		PopItemWidth();
+
+		SpacingY(em(0.5f));
+		if (Button($"{FontAwesome6.FloppyDisk} save")) {
+			if (isNew)
+				Greg.AddFixture(fixture);
+			fixture = null;
+		}
+		SameLine();
+		if (Button($"{FontAwesome6.TrashCan} discard")) {
+			fixture = null;
+		}
 	}
 }
 
 sealed class AudioWindow {
 	static readonly uint color_connected = hsb(120f / 360).ToU32();
 	static readonly uint color_disconnected = hsb(0).ToU32();
-	
+
 	public void Show() {
 		SetNextWindowSize(em(24, 12), ImGuiCond.FirstUseEver);
 		Begin("audio");
@@ -329,7 +345,7 @@ sealed class AudioWindow {
 			var drawList = GetWindowDrawList();
 
 			bool isDeviceOpen = AudioIn.IsOpen;
-			
+
 			float radius = em(0.45f);
 			drawList.AddCircleFilled(
 				GetCursorScreenPos() + vec2(radius, radius + Style.ItemSpacing.Y),
@@ -337,7 +353,7 @@ sealed class AudioWindow {
 				isDeviceOpen ? color_connected : color_disconnected
 			);
 			Dummy(vec2(radius * 1.8f, radius * 2));
-			
+
 			SameLine();
 			if (!isDeviceOpen) {
 				if (Button("open device")) {

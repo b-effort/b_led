@@ -17,7 +17,7 @@ static class PatternScript {
 	}
 	public static float square(float x) => pulse(x + 0.5f, 0.5f);
 	public static float pulse(float x, float dutyCycle) => x % 1 >= 1 - (dutyCycle % 1) ? 1f : 0f;
-	
+
 	// todo: harmonic series
 
 	public static class beat {
@@ -61,11 +61,11 @@ abstract class Pattern : ClipContents, IDisposable {
 		.ToArray();
 
 	public static Pattern FromId(Guid id) => All.First(p => p.Id == id);
-	
+
 	public abstract Guid Id { get; }
 
 	public readonly string name;
-	
+
 	public Macro m1 = new() { Name = "macro 1" };
 	public Macro m2 = new() { Name = "macro 2" };
 	public Macro m3 = new() { Name = "macro 3" };
@@ -127,41 +127,29 @@ sealed class Sequence : ClipContents {
 	[DataContract]
 	public sealed class Slot {
 		public Pattern? pattern;
-		[DataMember] public Guid? PatternId {
-			get => this.pattern?.Id;
-			init {
-				if (value.HasValue)
-					this.pattern = Pattern.FromId(value.Value);
-			}
+		[DataMember] public Guid? PatternId => this.pattern?.Id;
+
+		[JsonConstructor]
+		public Slot(Guid? pattern_id) {
+			if (pattern_id.HasValue)
+				this.pattern = Pattern.FromId(pattern_id.Value);
 		}
 
 		public Slot() : this(pattern_id: null) { }
-		
-		[JsonConstructor]
-		public Slot(Guid? pattern_id) {
-			this.PatternId = pattern_id;
-		}
 
 		public bool HasPattern => this.pattern != null;
 	}
 
 	public const int SlotsMin = 2;
 	public const int SlotsMax = 16;
-	public const int NameMaxLength = 64;
-	
+	public const int Name_MaxLength = 64;
+
 	[DataMember] public Guid Id { get; }
 	[DataMember] public string name;
 	[DataMember] public TimeFraction slotDuration;
-	
+
 	[DataMember] readonly List<Slot> slots;
 	public IReadOnlyList<Slot> Slots => this.slots;
-
-	public Sequence(string name = "new sequence") : this(
-		id: Guid.NewGuid(),
-		name,
-		slots: Enumerable.Range(0, 8).Select(_ => new Slot()).ToList(),
-		slot_duration: new TimeFraction(1, 4)
-	) { }
 
 	[JsonConstructor]
 	public Sequence(Guid id, string name, List<Slot> slots, TimeFraction slot_duration) {
@@ -171,8 +159,15 @@ sealed class Sequence : ClipContents {
 		this.slotDuration = slot_duration;
 	}
 
+	public Sequence(string name = "new sequence") : this(
+		id: Guid.NewGuid(),
+		name,
+		slots: Enumerable.Range(0, 8).Select(_ => new Slot()).ToList(),
+		slot_duration: new TimeFraction(1, 4)
+	) { }
+
 	public string Label => $"{this.name} ({this.Slots.Count})";
-	
+
 	public Slot? ActiveSlot {
 		get {
 			if (this.Slots.Count == 0)
@@ -196,7 +191,7 @@ sealed class Sequence : ClipContents {
 	public bool RemoveAt(int i) {
 		if (i < 0 || this.slots.Count <= i)
 			return false;
-		
+
 		this.slots.RemoveAt(i);
 		return true;
 	}

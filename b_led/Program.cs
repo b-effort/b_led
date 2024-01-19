@@ -15,7 +15,7 @@ using System.Threading;
 using b_effort.b_led;
 
 /*
- 
+
 # Runway
 - sequences
 	- create/delete
@@ -33,7 +33,9 @@ using b_effort.b_led;
 - ui
 	- remember selected tabs
 	- window opening/closing
-- gather config constants
+- housekeeping
+	- group ui into files by category (it's finally time)
+	- gather config constants
 
 # Reminders
 buffers are [y, x] = [y * width + x]
@@ -57,6 +59,9 @@ rl.SetTargetFPS(FPS);
 
 rlImGui.SetupUserFonts = ImFonts.SetupUserFonts;
 rlImGui.Setup(enableDocking: true);
+
+var style = ImGui.GetStyle();
+style.ItemInnerSpacing = vec2(8, 4);
 // ImGui.GetStyle().ScaleAllSizes(1.30f);
 
 ImGui.SetColorEditOptions(
@@ -109,7 +114,7 @@ while (!rl.WindowShouldClose()) {
 		width = rl.GetRenderWidth();
 		height = rl.GetRenderHeight();
 	}
-	
+
 	Update(deltaTime);
 
 	rl.BeginDrawing();
@@ -122,7 +127,7 @@ while (!rl.WindowShouldClose()) {
 		rl.DrawFPS(width - 84, 4);
 	}
 	rl.EndDrawing();
-	
+
 	deltaTime = (float)deltaTimer.Elapsed.TotalSeconds;
 	deltaTimer.Restart();
 }
@@ -143,7 +148,7 @@ void Update(float deltaTime) {
 
 void DrawUI() {
 	ImGui.DockSpaceOverViewport();
-	
+
 	if (ImGui.BeginMainMenuBar()) {
 		if (ImGui.BeginMenu("File")) {
 			if (ImGui.MenuItem("Save")) {
@@ -157,7 +162,7 @@ void DrawUI() {
 			}
 		}
 	}
-	
+
 	previewWindow.Show();
 	palettesWindow.Show();
 	clipsWindow.Show();

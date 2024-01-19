@@ -179,13 +179,6 @@ sealed class Gradient {
 	readonly List<Point> points;
 	[DataMember] public IReadOnlyList<Point> Points => this.points;
 
-	public Gradient() : this(
-		new List<Point> {
-			new(0f, hsb(0.0f, 0, 0)),
-			new(1f, hsb(0.0f, 0)),
-		}
-	) { }
-
 	[JsonConstructor]
 	public Gradient(IReadOnlyList<Point> points) {
 		if (points.Count < 2)
@@ -194,9 +187,16 @@ sealed class Gradient {
 			throw new ArgumentOutOfRangeException(nameof(points), points[0], "First point must have pos 0");
 		if (points[^1] != 1f)
 			throw new ArgumentOutOfRangeException(nameof(points), points[^1], "Last point must have pos 1");
-		
+
 		this.points = points.ToList();
 	}
+
+	public Gradient() : this(
+		new List<Point> {
+			new(0f, hsb(0.0f, 0, 0)),
+			new(1f, hsb(0.0f, 0)),
+		}
+	) { }
 
 	[Impl(Inline)]
 	public HSB ColorAt(float pos) {
@@ -244,7 +244,7 @@ sealed class Gradient {
 		// don't allow first or last point to be removed
 		if (i <= 0 || this.points.Count - 1 <= i)
 			return false;
-		
+
 		this.points.RemoveAt(i);
 		return true;
 	}
@@ -268,14 +268,14 @@ sealed class GradientPreview : IDisposable {
 		this.texture = RaylibUtil.CreateTexture(resolution, 1, out this.pixels);
 		this.UpdateTexture();
 	}
-	
+
 	~GradientPreview() => this.Dispose();
 
 	public void Dispose() {
 		rl.UnloadTexture(this.texture);
 		GC.SuppressFinalize(this);
 	}
-	
+
 	public void UpdateTexture() {
 		var pixels = this.pixels;
 		for (var x = 0; x < this.resolution; x++) {
@@ -293,15 +293,8 @@ sealed class Palette : ClipContents {
 
 	[DataMember] public string name;
 	[DataMember] public readonly Gradient gradient;
-	
-	public readonly GradientPreview preview;
-	public nint? TextureId => this.preview.TextureId;
 
-	public Palette(string name = "new palette", Gradient? gradient = null) : this(
-		id: Guid.NewGuid(),
-		name,
-		gradient ?? new Gradient()
-	) { }
+	public readonly GradientPreview preview;
 
 	[JsonConstructor]
 	public Palette(Guid id, string name, Gradient gradient) {
@@ -310,4 +303,12 @@ sealed class Palette : ClipContents {
 		this.gradient = gradient;
 		this.preview = new GradientPreview(gradient, 128);
 	}
+
+	public Palette(string name = "new palette", Gradient? gradient = null) : this(
+		id: Guid.NewGuid(),
+		name,
+		gradient ?? new Gradient()
+	) { }
+
+	public nint? TextureId => this.preview.TextureId;
 }

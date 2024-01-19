@@ -22,6 +22,13 @@ static class BMath {
 
 	[Impl(Inline)] public static float sqr(float x) => x * x;
 	[Impl(Inline)] public static float sqrt(float x) => MathF.Sqrt(x);
+	
+	public static bool perfectSqrt(float x, out int sqrt) {
+		float sqrtF = MathF.Sqrt(x);
+		bool isPerfect = sqrtF % 1 == 0;
+		sqrt = isPerfect ? (int)sqrtF : -1;
+		return isPerfect;
+	}
 
 	// Trig
 	[Impl(Inline)] public static float sin(float x) => MathF.Sin(x);
