@@ -96,7 +96,9 @@ static class ImGuiUtil {
 	}
 }
 
-static class RaylibUtil {
+static class rlUtil {
+	public static unsafe Texture2D CreateTexture(Vector2 size, out rlColor[] pixels) =>
+		CreateTexture((int)size.X, (int)size.Y, out pixels);
 	public static unsafe Texture2D CreateTexture(int width, int height, out rlColor[] pixels) {
 		const PixelFormat pixelFormat = PixelFormat.PIXELFORMAT_UNCOMPRESSED_R8G8B8A8;
 

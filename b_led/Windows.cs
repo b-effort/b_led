@@ -6,39 +6,12 @@ using static b_effort.b_led.Interop.ImGuiInternal;
 
 namespace b_effort.b_led;
 
-sealed class PreviewWindow : IDisposable {
-	const int Resolution = Greg.BufferWidth;
-
-	readonly Image image;
-	readonly Texture2D texture;
-
-	public PreviewWindow() {
-		this.image = rl.GenImageColor(Resolution, Resolution, rlColor.BLACK);
-		this.texture = rl.LoadTextureFromImage(this.image);
-	}
-
-	~PreviewWindow() => this.Dispose();
-
-	public void Dispose() {
-		rl.UnloadImage(this.image);
-		rl.UnloadTexture(this.texture);
-		GC.SuppressFinalize(this);
-	}
-
-	public unsafe void Show() {
-		var pixels = (rlColor*)this.image.data;
-		var buffer = Greg.outputBuffer;
-		for (var y = 0; y < Resolution; y++) {
-			for (var x = 0; x < Resolution; x++) {
-				pixels[y * Resolution + x] = (rlColor)buffer[y, x];
-			}
-		}
-		rl.UpdateTexture(this.texture, pixels);
-
+sealed class PreviewWindow {
+	public void Show() {
 		SetNextWindowSize(em(24, 24), ImGuiCond.FirstUseEver);
 		Begin("preview");
 		{
-			ImGuiUtil.ImageTextureFit(this.texture);
+			// ImGuiUtil.ImageTextureFit(this.texture);
 		}
 		End();
 	}
@@ -319,10 +292,15 @@ sealed class FixturesWindow {
 
 		InputText("network id", ref fixture.networkId, Fixture.NetworkId_MaxLength);
 		InputIntClamp("starting led offset", ref fixture.startingLedOffset, min: 0, max: 1 << 16);
+		InputFloat2("anchor point", ref fixture.anchorPoint);
+		InputFloat2("world pos", ref fixture.worldPos);
 		PopItemWidth();
 
 		SpacingY(em(0.5f));
 		if (Button($"{FontAwesome6.FloppyDisk} save")) {
+			fixture.RebuildMapping();
+			// !todo: move this somewhere better
+			Greg.UpdateWorldRect();
 			if (isNew)
 				Greg.AddFixture(fixture);
 			fixture = null;
@@ -494,7 +472,7 @@ sealed class PushWindow {
 }
 
 sealed class FuncPlotterWindow {
-	const int Resolution = Greg.BufferWidth;
+	const int Resolution = 128;
 	public List<(string name, Func<float, float> f)> Funcs { get; init; } = new();
 	readonly float[] points = new float[Resolution];
 

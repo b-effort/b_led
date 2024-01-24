@@ -62,7 +62,7 @@ abstract class Pattern : ClipContents, IDisposable {
 
 	public static Pattern FromId(Guid id) => All.First(p => p.Id == id);
 
-	public abstract Guid Id { get; }
+	public Guid Id { get; }
 
 	public readonly string name;
 
@@ -75,50 +75,67 @@ abstract class Pattern : ClipContents, IDisposable {
 	public IReadOnlyList<Macro> Macros => this.macros
 		??= new[] { this.m1, this.m2, this.m3, this.m4 };
 
-	const int Width = Greg.BufferWidth;
-	const int Height = Greg.BufferWidth;
-	public readonly HSB[,] pixels;
+	static readonly int PreviewWidth = (int)Config.PatternPreviewResolution.X;
+	static readonly int PreviewHeight = (int)Config.PatternPreviewResolution.Y;
 
-	readonly Texture2D texture;
-	readonly rlColor[] texturePixels;
-	public nint TextureId => (nint)this.texture.id;
+	readonly Texture2D previewTexture;
+	readonly rlColor[] previewTexturePixels;
+	public nint TextureId => (nint)this.previewTexture.id;
 	nint? ClipContents.TextureId => this.TextureId;
 
-	protected Pattern() {
+	protected Pattern(Guid id) {
+		this.Id = id;
 		this.name = this.GetDerivedNameFromType();
-		this.pixels = new HSB[Width, Width];
-		this.texture = RaylibUtil.CreateTexture(Width, Height, out this.texturePixels);
+		this.previewTexture = rlUtil.CreateTexture(PreviewWidth, PreviewHeight, out this.previewTexturePixels);
 	}
 
 	~Pattern() => this.Dispose();
 
 	public void Dispose() {
-		rl.UnloadTexture(this.texture);
+		rl.UnloadTexture(this.previewTexture);
 		GC.SuppressFinalize(this);
 	}
 
-	public void Update() {
-		this.PreRender();
+	public void RefreshPreview() {
+		float scaleX = Macro.scaleX;
+		float scaleY = Macro.scaleY;
 
-		float scaleX = Macro.scaleX.Value;
-		float scaleY = Macro.scaleY.Value;
+		rlColor[] previewPixels = this.previewTexturePixels;
+		float widthMinusOne = PreviewWidth - 1f;
+		for (int y = 0; y < PreviewHeight; y++)
+		for (int x = 0; x < PreviewWidth; x++) {
+			int i = y * PreviewWidth + x;
+			float x01 = x / widthMinusOne * scaleX;
+			float y01 = y / widthMinusOne * scaleY;
 
-		HSB[,] pixels = this.pixels;
-		for (var y = 0; y < Width; y++)
-		for (var x = 0; x < Width; x++) {
-			int i = y * Width + x;
-			const float lengthMinusOne = Width - 1f;
-			float x01 = x / lengthMinusOne * scaleX;
-			float y01 = y / lengthMinusOne * scaleY;
-
-			pixels[y, x] = this.Render(i, x01, y01);
-			this.texturePixels[y * Width + x] = (rlColor)pixels[y, x].ToRGB();
+			HSB pixel = this.Render(i, x01, y01);
+			previewPixels[i] = (rlColor)pixel.ToRGB();
 		}
 
-		rl.UpdateTexture(this.texture, this.texturePixels);
+		rl.UpdateTexture(this.previewTexture, this.previewTexturePixels);
 	}
 
-	protected virtual void PreRender() { }
+	public void RenderTo(HSB[] pixels, PixelMapping mapping, Palette? palette) {
+		float scaleX = Macro.scaleX;
+		float scaleY = Macro.scaleY;
+		float hueOffset = Macro.hue_offset;
+
+		for (var i = 0; i < pixels.Length; i++) {
+			Vector2 pos = mapping[i];
+
+			HSB color = this.Render(i, pos.X * scaleX, pos.Y * scaleY);
+			// !todo: handle negative hue offset
+			color.h += hueOffset;
+			if (color.h > 1f)
+				color.h %= 1f;
+			if (palette != null)
+				color = palette.gradient.MapColor(color);
+
+			pixels[i] = color;
+		}
+	}
+
+	public virtual void Tick() { }
 	protected abstract HSB Render(int i, float x, float y);
 }
 

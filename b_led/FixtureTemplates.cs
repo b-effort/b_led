@@ -1,27 +1,26 @@
 namespace b_effort.b_led;
 
 sealed class Fixture_Matrix_64x64 : FixtureTemplate {
-	public override Guid Id { get; } = new("d41d1982-e3c8-462a-b339-b417dbc08ed6");
-
 	public Fixture_Matrix_64x64() : base(
-		mapper: LEDMappers.Matrix(0.25f)
+		id: new("d41d1982-e3c8-462a-b339-b417dbc08ed6"),
+		mapper: PixelMappers.Matrix(0.25f)
 	) { }
 }
 
-static class LEDMappers {
-	public static LEDMapper Matrix(float spacing) {
-		return leds => {
-			if (!BMath.perfectSqrt(leds.Length, out int size))
+static class PixelMappers {
+	public static PixelMapper Matrix(float spacing) {
+		return pixels => {
+			if (!BMath.perfectSqrt(pixels.Length, out int size))
 				throw new OopsiePoopsie(
-					$"Invalid num leds for matrix, not a perfect square. numLeds={leds.Length}"
+					$"Invalid num leds for matrix, not a perfect square. numLeds={pixels.Length}"
 				);
 
 			for (int y = 0, i = 0; y < size; y++)
-			for (var x = 0; x < size && i < leds.Length; x++) {
-				leds[i] = vec2(x * spacing, y * spacing);
+			for (var x = 0; x < size && i < pixels.Length; x++) {
+				pixels[i] = vec2(x * spacing, y * spacing);
 			}
 
-			return leds;
+			return pixels;
 		};
 	}
 }

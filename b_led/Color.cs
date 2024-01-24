@@ -265,7 +265,7 @@ sealed class GradientPreview : IDisposable {
 	public GradientPreview(Gradient gradient, int resolution) {
 		this.gradient = gradient;
 		this.resolution = resolution;
-		this.texture = RaylibUtil.CreateTexture(resolution, 1, out this.pixels);
+		this.texture = rlUtil.CreateTexture(resolution, 1, out this.pixels);
 		this.UpdateTexture();
 	}
 

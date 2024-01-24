@@ -27,7 +27,6 @@
     </ItemGroup>
 
     <ItemGroup>
-        <Folder Include="assets\" />
         <None Remove="imgui.ini" />
     </ItemGroup>
 

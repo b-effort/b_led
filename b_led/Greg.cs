@@ -1,23 +1,30 @@
-namespace b_effort.b_led; 
+namespace b_effort.b_led;
 
 // greg is secretary of state
 // greg is a beast you can't tame
-static partial class Greg {
+static class Greg {
 	const string ProjectFile = $"test.{Project.FileExt}";
-
-	public const int BufferWidth = 64;
-
 	static Project project = new();
+
+	static Greg() {
+		previewTexture = rlUtil.CreateTexture(Config.FullPreviewResolution, out previewPixels);
+
+		foreach (var pattern in Patterns) {
+			pattern.RefreshPreview();
+		}
+	}
 
 	public static List<Palette> Palettes => project.Palettes;
 	public static Pattern[] Patterns => Pattern.All;
 	public static List<Sequence> Sequences => project.Sequences;
+
 	public static ClipBank[] ClipBanks => project.ClipBanks;
-	
 	public static ClipBank? ActiveClipBank { get; set; } = ClipBanks[0];
 	public static Palette? ActivePalette => ActiveClipBank?.ActivePalette;
 	public static Pattern? ActivePattern => ActiveClipBank?.ActivePattern;
 
+
+#region project
 
 	public static void LoadDemoProject() {
 		project = new Project {
@@ -40,13 +47,6 @@ static partial class Greg {
 		ActiveClipBank = ClipBanks[0];
 	}
 
-	static Greg() {
-		// init preview
-		foreach (var pattern in Patterns) {
-			pattern.Update();
-		}
-	}
-
 	public static void SaveProject() {
 		project.Save(ProjectFile);
 	}
@@ -55,32 +55,55 @@ static partial class Greg {
 		project = Project.Load(ProjectFile);
 		ActiveClipBank = ClipBanks[0];
 	}
-	
+
+#endregion
+
+#region fixtures
+	// I could make a separate FixtureManager ...but I hate that
+	// anyways, greg's more than up for the task
+
+	public static FixtureTemplate[] FixtureTemplates => FixtureTemplate.All;
+	public static List<Fixture> Fixtures => project.Fixtures;
+	public static Rect WorldRect { get; private set; }
+
+	public static void AddFixture(Fixture fixture) => Fixtures.Add(fixture);
+
+	public static void UpdateWorldRect() {
+		Rect worldRect = new(pos: Vector2.Zero, size: Vector2.Zero);
+
+		foreach (var fixture in Fixtures) {
+			Vector2 fixtureBounds = fixture.Mapping.Bounds;
+			Rect fixtureRect = new(
+				pos: fixture.worldPos - (fixtureBounds * fixture.anchorPoint),
+				size: fixtureBounds
+			);
+
+			worldRect.Expand(fixtureRect);
+		}
+
+		WorldRect = worldRect;
+	}
+
+#endregion
+
+	public const int BufferWidth = 64;
 	public static readonly RGB[,] outputBuffer = new RGB[BufferWidth, BufferWidth];
+
+	static Texture2D previewTexture;
+	static rlColor[] previewPixels;
 
 	public static void Update() {
 		var pattern = ActivePattern;
 		if (pattern == null)
 			return;
 
-		pattern.Update();
+		pattern.Tick();
+		pattern.RefreshPreview();
 
-		RGB[,] outputs = outputBuffer;
-		HSB[,] patternPixels = pattern.pixels;
-		float hueOffset = Macro.hue_offset.Value;
-		var gradient = ActivePalette?.gradient;
-
-		for (var y = 0; y < BufferWidth; y++)
-		for (var x = 0; x < BufferWidth; x++) {
-			HSB color = patternPixels[y, x];
-			
-			color.h += hueOffset;
-			if (color.h > 1f)
-				color.h %= 1f;
-			if (gradient != null)
-				color = gradient.MapColor(color);
-			
-			outputs[y, x] = color.ToRGB();
+		var palette = ActivePalette;
+		// RGB[,] outputs = outputBuffer;
+		foreach (var fixture in Fixtures) {
+			pattern.RenderTo(fixture.Pixels, fixture.Mapping, palette);
 		}
 	}
 }

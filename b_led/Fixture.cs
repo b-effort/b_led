@@ -26,27 +26,27 @@ https://electromage.com/docs/intro-to-mapping
 ([0, 1]], [0, 1])
  */
 
-delegate LEDMap LEDMapper(Vector2[] leds);
+delegate PixelMapping PixelMapper(Vector2[] pixels);
 
-readonly record struct LEDMap(Vector2[] leds) {
-	public readonly Vector2[] leds = leds;
-	public readonly Bounds bounds = GetBounds(leds);
+readonly record struct PixelMapping(Vector2[] pixels) {
+	readonly Vector2[] pixels = pixels;
+	readonly Vector2 bounds = GetBounds(pixels);
 
-	public int NumLeds => this.leds.Length;
+	public Vector2 this[int i] => this.pixels[i] / this.bounds;
+	public Vector2 Bounds => this.bounds;
+	public int NumLeds => this.pixels.Length;
 
-	public static implicit operator LEDMap(Vector2[] value) => new(value);
+	public static implicit operator PixelMapping(Vector2[] value) => new(value);
 
-	static Bounds GetBounds(Vector2[] values) {
-		Vector2 min = new(float.PositiveInfinity), max = new(float.NegativeInfinity);
+	static Vector2 GetBounds(Vector2[] values) {
+		Vector2 max = Vector2.Zero;
 
 		foreach (var value in values) {
-			if (value.X < min.X) min.X = value.X;
-			if (value.Y < min.Y) min.Y = value.Y;
 			if (value.X > max.X) max.X = value.X;
 			if (value.Y > max.Y) max.Y = value.Y;
 		}
 
-		return new Bounds(min, max);
+		return max;
 	}
 }
 
@@ -60,12 +60,13 @@ abstract class FixtureTemplate {
 
 	public static FixtureTemplate FromId(Guid id) => All.First(f => f.Id == id);
 
-	public abstract Guid Id { get; }
+	public Guid Id { get; }
 
 	public readonly string name;
-	public readonly LEDMapper mapper;
+	public readonly PixelMapper mapper;
 
-	protected FixtureTemplate(LEDMapper mapper) {
+	protected FixtureTemplate(Guid id, PixelMapper mapper) {
+		this.Id = id;
 		this.mapper = mapper;
 		this.name = this.GetDerivedNameFromType(trimPrefix: "Fixture");
 	}
@@ -85,8 +86,12 @@ sealed class Fixture {
 	[DataMember] public int numLeds;
 	// for fixtures with multiple sub-fixtures
 	[DataMember] public int startingLedOffset;
-	// world coordinates
-	// world anchor
+	[DataMember] public Vector2 anchorPoint;
+	[DataMember] public Vector2 worldPos;
+
+	public PixelMapping Mapping { get; private set; }
+	HSB[] pixels = Array.Empty<HSB>();
+	public HSB[] Pixels => this.pixels;
 
 	[JsonConstructor]
 	public Fixture(
@@ -96,31 +101,36 @@ sealed class Fixture {
 		Guid? template_id = null,
 		string network_id = "",
 		int num_leds = 0,
-		int starting_led_offset = 0
+		int starting_led_offset = 0,
+		Vector2 anchor_point = default,
+		Vector2 world_pos = default
 	) {
 		this.Id = id;
 		this.name = name;
 		this.groups = groups ?? new List<string>();
-		if (template_id.HasValue)
-			this.template = FixtureTemplate.FromId(template_id.Value);
 		this.networkId = network_id;
 		this.numLeds = num_leds;
 		this.startingLedOffset = starting_led_offset;
+		this.anchorPoint = anchor_point;
+		this.worldPos = world_pos;
+		if (template_id.HasValue) {
+			this.template = FixtureTemplate.FromId(template_id.Value);
+			this.RebuildMapping();
+		}
 	}
 
 	public Fixture(string name = "") : this(
 		id: Guid.NewGuid(),
 		name
 	) { }
-}
 
-// I could make a separate FixtureManager ...but I hate that
-// anyways, greg's more than up for the task
-static partial class Greg {
-	public static FixtureTemplate[] FixtureTemplates => FixtureTemplate.All;
-	public static List<Fixture> Fixtures => project.Fixtures;
+	public void RebuildMapping() {
+		if (this.template is null)
+			throw new OopsiePoopsie("Fixture template is null");
 
-	public static void AddFixture(Fixture fixture) => Fixtures.Add(fixture);
+		this.Mapping = this.template.mapper(new Vector2[this.numLeds]);
+		Array.Resize(ref this.pixels, this.Mapping.NumLeds);
+	}
 }
 
 static class FixtureServer {

@@ -81,7 +81,7 @@ try {
 	Greg.LoadDemoProject();
 }
 
-using var previewWindow = new PreviewWindow();
+var previewWindow = new PreviewWindow();
 var palettesWindow = new PalettesWindow();
 var patternsWindow = new PatternsWindow();
 var sequencesWindow = new SequencesWindow();
@@ -134,6 +134,7 @@ while (!rl.WindowShouldClose()) {
 
 AudioIn.Close();
 Push2.Dispose();
+Shaders.Unload();
 rlImGui.Shutdown();
 rl.CloseWindow();
 return;
@@ -176,8 +177,15 @@ void DrawUI() {
 	pushWindow.Show();
 }
 
+static class Config {
+	public const string AssetsPath = "assets";
+
+	public static readonly Vector2 FullPreviewResolution = vec2(800, 600);
+	public static readonly Vector2 PatternPreviewResolution = vec2(64);
+}
+
 static class ImFonts {
-	const string JetBrainsMono_Regular_TTF = "assets/JetBrainsMono-Regular.ttf";
+	const string JetBrainsMono_Regular_TTF = $"{Config.AssetsPath}/JetBrainsMono-Regular.ttf";
 
 	public static ImFontPtr Default { get; private set; }
 
@@ -207,4 +215,18 @@ static class ImFonts {
 		=> io.Fonts.AddFontFromFileTTF(file, px_to_pt(px), config);
 
 	static int px_to_pt(int px) => px * 96 / 72;
+}
+
+static class Shaders {
+	const string ShadersPath = $"{Config.AssetsPath}/shaders";
+
+	public static readonly Shader FixturePreview;
+
+	static Shaders() {
+		FixturePreview = rl.LoadShader(null, $"{ShadersPath}/fixture_preview.frag");
+	}
+
+	public static void Unload() {
+		rl.UnloadShader(FixturePreview);
+	}
 }
