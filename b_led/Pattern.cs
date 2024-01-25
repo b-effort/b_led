@@ -75,8 +75,8 @@ abstract class Pattern : ClipContents, IDisposable {
 	public IReadOnlyList<Macro> Macros => this.macros
 		??= new[] { this.m1, this.m2, this.m3, this.m4 };
 
-	static readonly int PreviewWidth = (int)Config.PatternPreviewResolution.X;
-	static readonly int PreviewHeight = (int)Config.PatternPreviewResolution.Y;
+	static int PreviewWidth => (int)Config.PatternPreviewResolution.X;
+	static int PreviewHeight => (int)Config.PatternPreviewResolution.Y;
 
 	readonly Texture2D previewTexture;
 	readonly rlColor[] previewTexturePixels;
@@ -96,7 +96,7 @@ abstract class Pattern : ClipContents, IDisposable {
 		GC.SuppressFinalize(this);
 	}
 
-	public void RefreshPreview() {
+	public void UpdatePreview() {
 		float scaleX = Macro.scaleX;
 		float scaleY = Macro.scaleY;
 
@@ -115,13 +115,13 @@ abstract class Pattern : ClipContents, IDisposable {
 		rl.UpdateTexture(this.previewTexture, this.previewTexturePixels);
 	}
 
-	public void RenderTo(HSB[] pixels, PixelMapping mapping, Palette? palette) {
+	public void RenderTo(RGB[] leds, Vector2[] coords, Vector2 bounds, Palette? palette) {
 		float scaleX = Macro.scaleX;
 		float scaleY = Macro.scaleY;
 		float hueOffset = Macro.hue_offset;
 
-		for (var i = 0; i < pixels.Length; i++) {
-			Vector2 pos = mapping[i];
+		for (var i = 0; i < leds.Length; i++) {
+			Vector2 pos = coords[i] / bounds;
 
 			HSB color = this.Render(i, pos.X * scaleX, pos.Y * scaleY);
 			// !todo: handle negative hue offset
@@ -131,7 +131,7 @@ abstract class Pattern : ClipContents, IDisposable {
 			if (palette != null)
 				color = palette.gradient.MapColor(color);
 
-			pixels[i] = color;
+			leds[i] = color.ToRGB();
 		}
 	}
 

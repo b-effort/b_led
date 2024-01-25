@@ -4,20 +4,6 @@ using System.Text.Json.Serialization;
 namespace b_effort.b_led;
 
 static class Color {
-	public static HSB hsb(float h, float s = 1f, float b = 1f) {
-		// todo: move this validation to a normalize method
-		if (!float.IsNormal(h)) {
-			h = 0f;
-		} else if (float.Abs(h) == 1f) {
-			h = 1f;
-		} else {
-			h %= 1f;
-			if (h < 0)
-				h += 1;
-		}
-		return new HSB(h, s, b);
-	}
-
 	// ! This is sRGB
 	public readonly record struct RGB(byte r, byte g, byte b, byte a = 255) {
 		public RGB ContrastColor() => PerceivedLightness(this) < 0.5f
@@ -33,7 +19,25 @@ static class Color {
 			);
 		}
 
+		[Impl(Inline)] public Vector4 ToVec4(RGB @this) => new(
+			@this.r / 255f, @this.g / 255f, @this.b / 255f, @this.a / 255f
+		);
+
 		public static explicit operator rlColor(RGB @this) => new(@this.r, @this.g, @this.b, @this.a);
+	}
+
+	public static HSB hsb(float h, float s = 1f, float b = 1f) {
+		// todo: move this validation to a normalize method
+		if (!float.IsNormal(h)) {
+			h = 0f;
+		} else if (float.Abs(h) == 1f) {
+			h = 1f;
+		} else {
+			h %= 1f;
+			if (h < 0)
+				h += 1;
+		}
+		return new HSB(h, s, b);
 	}
 
 	[DataContract]

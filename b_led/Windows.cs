@@ -279,11 +279,11 @@ sealed class FixturesWindow {
 		PushItemWidth(em(-12));
 		InputTextWithHint("name", "fixture", ref fixture!.name, Fixture.Name_MaxLength);
 
-		if (BeginCombo("template", fixture.template?.name)) {
+		if (BeginCombo("template", fixture.Template?.name)) {
 			foreach (var template in Templates) {
-				bool isSelected = template == fixture.template;
+				bool isSelected = template == fixture.Template;
 				if (Selectable(template.name, isSelected))
-					fixture.template = template;
+					fixture.Template = template;
 				if (isSelected)
 					SetItemDefaultFocus();
 			}
@@ -291,14 +291,17 @@ sealed class FixturesWindow {
 		}
 
 		InputText("network id", ref fixture.networkId, Fixture.NetworkId_MaxLength);
+		InputIntClamp("num leds", ref fixture.numLeds, min: 0, max: 1 << 16);
 		InputIntClamp("starting led offset", ref fixture.startingLedOffset, min: 0, max: 1 << 16);
 		InputFloat2("anchor point", ref fixture.anchorPoint);
 		InputFloat2("world pos", ref fixture.worldPos);
 		PopItemWidth();
 
+		var _fixture = fixture;
+
 		SpacingY(em(0.5f));
 		if (Button($"{FontAwesome6.FloppyDisk} save")) {
-			fixture.RebuildMapping();
+			fixture.Resize();
 			// !todo: move this somewhere better
 			Greg.UpdateWorldRect();
 			if (isNew)
@@ -309,6 +312,9 @@ sealed class FixturesWindow {
 		if (Button($"{FontAwesome6.TrashCan} discard")) {
 			fixture = null;
 		}
+
+		_fixture.UpdatePreview();
+		ImGuiUtil.ImageTextureFit(_fixture.PreviewTexture);
 	}
 }
 

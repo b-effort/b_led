@@ -102,7 +102,7 @@ var funcPlotterWindow = new FuncPlotterWindow {
 };
 
 Push2.Connect();
-FixtureServer.Start();
+// FixtureServer.Start();
 
 #endregion
 
@@ -223,7 +223,7 @@ static class Shaders {
 	public static readonly Shader FixturePreview;
 
 	static Shaders() {
-		FixturePreview = rl.LoadShader(null, $"{ShadersPath}/fixture_preview.frag");
+		FixturePreview = rl.LoadShader($"{ShadersPath}/fixture_preview.vert", $"{ShadersPath}/fixture_preview.frag");
 	}
 
 	public static void Unload() {

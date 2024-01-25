@@ -7,10 +7,10 @@ static class Greg {
 	static Project project = new();
 
 	static Greg() {
-		previewTexture = rlUtil.CreateTexture(Config.FullPreviewResolution, out previewPixels);
+		// previewTexture = rlUtil.CreateTexture(Config.FullPreviewResolution, out previewPixels);
 
 		foreach (var pattern in Patterns) {
-			pattern.RefreshPreview();
+			pattern.UpdatePreview();
 		}
 	}
 
@@ -72,10 +72,9 @@ static class Greg {
 		Rect worldRect = new(pos: Vector2.Zero, size: Vector2.Zero);
 
 		foreach (var fixture in Fixtures) {
-			Vector2 fixtureBounds = fixture.Mapping.Bounds;
 			Rect fixtureRect = new(
-				pos: fixture.worldPos - (fixtureBounds * fixture.anchorPoint),
-				size: fixtureBounds
+				pos: fixture.worldPos - (fixture.Bounds * fixture.anchorPoint),
+				size: fixture.Bounds
 			);
 
 			worldRect.Expand(fixtureRect);
@@ -87,7 +86,6 @@ static class Greg {
 #endregion
 
 	public const int BufferWidth = 64;
-	public static readonly RGB[,] outputBuffer = new RGB[BufferWidth, BufferWidth];
 
 	static Texture2D previewTexture;
 	static rlColor[] previewPixels;
@@ -98,12 +96,11 @@ static class Greg {
 			return;
 
 		pattern.Tick();
-		pattern.RefreshPreview();
+		pattern.UpdatePreview();
 
 		var palette = ActivePalette;
-		// RGB[,] outputs = outputBuffer;
 		foreach (var fixture in Fixtures) {
-			pattern.RenderTo(fixture.Pixels, fixture.Mapping, palette);
+			fixture.Render(pattern, palette);
 		}
 	}
 }

@@ -2,11 +2,11 @@ using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Runtime.Serialization;
 
-namespace System.Text.Json.Serialization.Metadata; 
+namespace System.Text.Json.Serialization.Metadata;
 
 sealed class DataContractJsonTypeInfoResolver : DefaultJsonTypeInfoResolver {
 	readonly JsonNamingPolicy? propertyNamingPolicy;
-	
+
 	public DataContractJsonTypeInfoResolver(JsonNamingPolicy? propertyNamingPolicy = null) {
 		this.propertyNamingPolicy = propertyNamingPolicy;
 	}
@@ -37,7 +37,7 @@ sealed class DataContractJsonTypeInfoResolver : DefaultJsonTypeInfoResolver {
 
 	IEnumerable<JsonPropertyInfo> CreateDataMembers(JsonTypeInfo jsonTypeInfo) {
 		bool isDataContract = jsonTypeInfo.Type.GetCustomAttribute<DataContractAttribute>() != null;
-		BindingFlags bindingFlags = BindingFlags.Instance | BindingFlags.Public;
+		BindingFlags bindingFlags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
 
 		if (isDataContract) {
 			bindingFlags |= BindingFlags.NonPublic;
@@ -78,7 +78,7 @@ sealed class DataContractJsonTypeInfoResolver : DefaultJsonTypeInfoResolver {
 			} else {
 				continue;
 			}
-			
+
 			if (this.propertyNamingPolicy != null)
 				propertyName = this.propertyNamingPolicy.ConvertName(propertyName);
 

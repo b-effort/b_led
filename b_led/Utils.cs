@@ -64,6 +64,7 @@ static class ImGuiShorthand {
 static class ImGuiUtil {
 	public static void ImageTextureFit(Texture2D texture, bool center = true) {
 		Vector2 area = ImGui.GetContentRegionAvail();
+		// area.X = ImGui.CalcItemWidth();
 
 		float scale = area.X / texture.width;
 		float y = texture.height * scale;
