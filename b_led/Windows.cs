@@ -306,7 +306,7 @@ sealed class FixturesWindow {
 			Greg.UpdateWorldRect();
 			if (isNew)
 				Greg.AddFixture(fixture);
-			fixture = null;
+			// fixture = null;
 		}
 		SameLine();
 		if (Button($"{FontAwesome6.TrashCan} discard")) {

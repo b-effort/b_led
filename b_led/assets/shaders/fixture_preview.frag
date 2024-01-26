@@ -1,10 +1,11 @@
 #version 330
 
-in vec2 ledCoord;
 in vec4 ledColor;
+in vec2 ledCoord;
 
-out vec4 finalColor;
+layout(location=0) out vec4 finalColor;
 
 void main() {
-    finalColor = ledColor;
+//    finalColor = ledColor;
+    finalColor = vec4(0.5, 0, 0.5, 1);
 }

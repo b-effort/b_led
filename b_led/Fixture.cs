@@ -45,13 +45,15 @@ abstract class FixtureTemplate {
 	public Guid Id { get; }
 
 	public readonly string name;
-	public readonly LEDMapper mapper;
+	readonly LEDMapper mapper;
 
 	protected FixtureTemplate(Guid id, LEDMapper mapper) {
 		this.Id = id;
 		this.mapper = mapper;
 		this.name = this.GetDerivedNameFromType(trimPrefix: "Fixture");
 	}
+
+	public void PopulateMap(Vector2[] coords) => this.mapper(coords);
 }
 
 [DataContract]
@@ -77,7 +79,7 @@ sealed class Fixture {
 			this.template = value;
 			this.templateId = value.Id;
 			this.RebuildMap();
-			this.preview.UpdateMapping();
+			this.preview.UpdateCoordsBuffer();
 		}
 	}
 
@@ -85,7 +87,7 @@ sealed class Fixture {
 	Vector2[] coords;
 	public Vector2 Bounds { get; private set; }
 
-	readonly FixturePreview preview;
+	readonly Preview preview;
 	public Texture2D PreviewTexture => this.preview.Texture;
 
 	[JsonConstructor]
@@ -115,7 +117,7 @@ sealed class Fixture {
 		this.coords = new Vector2[num_leds];
 		this.RebuildMap();
 
-		this.preview = new FixturePreview(this.leds, this.coords);
+		this.preview = new Preview(this);
 	}
 
 	public Fixture(string name = "") : this(
@@ -131,15 +133,15 @@ sealed class Fixture {
 		Array.Resize(ref this.leds, this.numLeds);
 		Array.Resize(ref this.coords, this.numLeds);
 		this.RebuildMap();
-		this.preview.Resize(this.leds, this.coords);
+		this.preview.Resize(this.numLeds);
 	}
 
 	void RebuildMap() {
-		this.Template.mapper(this.coords);
+		this.Template.PopulateMap(this.coords);
 		this.Bounds = GetBounds(this.coords);
 	}
 
-	public void UpdatePreview() => this.preview.RenderTexture();
+	public void UpdatePreview() => this.preview.UpdateTexture();
 
 	static Vector2 GetBounds(Vector2[] coords) {
 		Vector2 max = Vector2.Zero;
@@ -151,95 +153,110 @@ sealed class Fixture {
 
 		return max;
 	}
-}
 
-sealed class FixturePreview : IDisposable {
-	static int Width => (int)Config.PatternPreviewResolution.X;
-	static int Height => (int)Config.PatternPreviewResolution.Y;
+	sealed class Preview : IDisposable {
+		static int Width => (int)Config.PatternPreviewResolution.X;
+		static int Height => (int)Config.PatternPreviewResolution.Y;
 
-	RGB[] leds;
-	Vector2[] coords;
+		readonly Fixture fixture;
+		readonly RenderTexture2D rt;
+		uint vao;
+		uint vbo_leds;
+		uint vbo_coords;
 
-	readonly RenderTexture2D rt;
-	uint vao;
-	uint vbo_leds;
-	uint vbo_coords;
+		int length;
 
-	int NumLeds => this.leds.Length;
+		public Preview(Fixture fixture) {
+			this.fixture = fixture;
+			this.length = this.fixture.numLeds;
 
-	public Texture2D Texture => this.rt.texture;
-
-	public FixturePreview(RGB[] leds, Vector2[] coords) {
-		this.leds = leds;
-		this.coords = coords;
-
-		this.rt = rl.LoadRenderTexture(Width, Height);
-		this.BuildVAO();
-	}
-
-	~FixturePreview() => this.Dispose();
-
-	public void Dispose() {
-		this.DisposeVAO();
-		GC.SuppressFinalize(this);
-	}
-
-	unsafe void BuildVAO() {
-		this.vao = rlLoadVertexArray();
-		rlEnableVertexArray(this.vao);
-		{
-			this.vbo_leds = rlLoadVertexBuffer(Unsafe.AsPointer(ref this.leds), this.NumLeds * sizeof(RGB), true);
-			rlSetVertexAttribute(0, 4, RL_UNSIGNED_BYTE, true, 0, (void*)0);
-			rlEnableVertexAttribute(0);
-
-			this.vbo_coords = rlLoadVertexBuffer(Unsafe.AsPointer(ref this.coords), this.NumLeds * sizeof(Vector2), true);
-			rlSetVertexAttribute(1, 2, RL_FLOAT, false, 0, (void*)0);
-			rlEnableVertexAttribute(1);
-
-			rlDisableVertexBuffer();
+			this.rt = rl.LoadRenderTexture(Width, Height);
+			this.InitShader();
 		}
-		rlDisableVertexBuffer();
-	}
 
-	void DisposeVAO() {
-		rlUnloadVertexBuffer(this.vbo_leds);
-		rlUnloadVertexBuffer(this.vbo_coords);
-		rlUnloadVertexArray(this.vao);
-		this.vbo_leds = 0;
-		this.vbo_coords = 0;
-		this.vao = 0;
-	}
+		public Texture2D Texture => this.rt.texture;
 
-	public void Resize(RGB[] newLeds, Vector2[] newCoords) {
-		this.leds = newLeds;
-		this.coords = newCoords;
-		this.DisposeVAO();
-		this.BuildVAO();
-	}
+		~Preview() => this.Dispose();
 
-	public unsafe void UpdateMapping() {
-		rlUpdateVertexBuffer(this.vbo_coords, Unsafe.AsPointer(ref this.coords), this.NumLeds * sizeof(Vector2), 0);
-	}
+		public void Dispose() {
+			this.UnloadVAO();
+			GC.SuppressFinalize(this);
+		}
 
-	public unsafe void RenderTexture() {
-		rlUpdateVertexBuffer(this.vbo_leds, Unsafe.AsPointer(ref this.leds), this.NumLeds * sizeof(RGB), 0);
-
-		rl.BeginTextureMode(this.rt);
-		{
-			rl.ClearBackground(rlColor.BLACK);
-			rl.BeginShaderMode(Shaders.FixturePreview);
+		// ! NORMALIZE COORDS
+		unsafe void InitShader() {
+			this.vao = rlLoadVertexArray();
+			rlEnableVertexArray(this.vao);
 			{
-				rlEnableVertexArray(this.vao);
-				{
-					rlDrawVertexArray(0, this.NumLeds);
-				}
-				rlDisableVertexArray();
+				var leds = this.fixture.leds;
+				this.vbo_leds = rlLoadVertexBuffer(Unsafe.AsPointer(ref leds), this.length * sizeof(RGB), true);
+				rlSetVertexAttribute(0, 4, RL_UNSIGNED_BYTE, true, 0, (void*)0);
+				rlEnableVertexAttribute(0);
+
+				var coords = this.fixture.coords;
+				this.vbo_coords = rlLoadVertexBuffer(Unsafe.AsPointer(ref coords), this.length * sizeof(Vector2), true);
+				rlSetVertexAttribute(1, 2, RL_FLOAT, false, 0, (void*)0);
+				rlEnableVertexAttribute(1);
+
+				rlDisableVertexBuffer();
 			}
-			rl.EndShaderMode();
+			rlDisableVertexArray();
+
+			this.SetBounds();
 		}
-		rl.EndTextureMode();
+
+		void UnloadVAO() {
+			rlUnloadVertexBuffer(this.vbo_leds);
+			rlUnloadVertexBuffer(this.vbo_coords);
+			rlUnloadVertexArray(this.vao);
+			this.vbo_leds = 0;
+			this.vbo_coords = 0;
+			this.vao = 0;
+		}
+
+		public void Resize(int newLength) {
+			this.UnloadVAO();
+			this.length = newLength;
+			this.InitShader();
+		}
+
+		public unsafe void UpdateCoordsBuffer() {
+			var coords = this.fixture.coords;
+			rlUpdateVertexBuffer(this.vbo_coords, Unsafe.AsPointer(ref coords), this.length * sizeof(Vector2), 0);
+			this.SetBounds();
+		}
+
+		void SetBounds() {
+			rl.SetShaderValue(
+				Shaders.FixturePreview, Shaders.FixturePreview_Uniform_Bounds,
+				this.fixture.Bounds, ShaderUniformDataType.SHADER_UNIFORM_VEC2
+			);
+		}
+
+		public unsafe void UpdateTexture() {
+			var leds = this.fixture.leds;
+			rlUpdateVertexBuffer(this.vbo_leds, Unsafe.AsPointer(ref leds), this.length * sizeof(RGB), 0);
+
+			rl.BeginTextureMode(this.rt);
+			{
+				rl.ClearBackground(rlColor.BLACK);
+				rlDrawRenderBatchActive();
+
+				rl.BeginShaderMode(Shaders.FixturePreview);
+				{
+					rlEnableVertexArray(this.vao);
+					{
+						rlDrawVertexArray(0, this.length);
+					}
+					rlDisableVertexArray();
+				}
+				rl.EndShaderMode();
+			}
+			rl.EndTextureMode();
+		}
 	}
 }
+
 
 static class FixtureServer {
 	enum MessageType : byte {

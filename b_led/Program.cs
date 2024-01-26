@@ -220,11 +220,11 @@ static class ImFonts {
 static class Shaders {
 	const string ShadersPath = $"{Config.AssetsPath}/shaders";
 
-	public static readonly Shader FixturePreview;
-
-	static Shaders() {
-		FixturePreview = rl.LoadShader($"{ShadersPath}/fixture_preview.vert", $"{ShadersPath}/fixture_preview.frag");
-	}
+	public static readonly Shader FixturePreview = rl.LoadShader(
+		$"{ShadersPath}/fixture_preview.vert",
+		$"{ShadersPath}/fixture_preview.frag"
+	);
+	public static readonly int FixturePreview_Uniform_Bounds = rl.GetShaderLocation(FixturePreview, "bounds");
 
 	public static void Unload() {
 		rl.UnloadShader(FixturePreview);
