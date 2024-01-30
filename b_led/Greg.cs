@@ -87,9 +87,6 @@ static class Greg {
 
 	public const int BufferWidth = 64;
 
-	static Texture2D previewTexture;
-	static rlColor[] previewPixels;
-
 	public static void Update() {
 		var pattern = ActivePattern;
 		if (pattern == null)

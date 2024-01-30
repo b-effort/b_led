@@ -1,5 +1,6 @@
 using System.Runtime.Serialization;
 using System.Text.Json.Serialization;
+using b_effort.b_led.graphics;
 using JetBrains.Annotations;
 
 namespace b_effort.b_led;
@@ -79,20 +80,19 @@ abstract class Pattern : ClipContents, IDisposable {
 	static int PreviewHeight => (int)Config.PatternPreviewResolution.Y;
 
 	readonly Texture2D previewTexture;
-	readonly rlColor[] previewTexturePixels;
-	public nint TextureId => (nint)this.previewTexture.id;
+	public nint TextureId => this.previewTexture.id;
 	nint? ClipContents.TextureId => this.TextureId;
 
 	protected Pattern(Guid id) {
 		this.Id = id;
 		this.name = this.GetDerivedNameFromType();
-		this.previewTexture = rlUtil.CreateTexture(PreviewWidth, PreviewHeight, out this.previewTexturePixels);
+		this.previewTexture = new Texture2D(PreviewWidth, PreviewHeight);
 	}
 
 	~Pattern() => this.Dispose();
 
 	public void Dispose() {
-		rl.UnloadTexture(this.previewTexture);
+		this.previewTexture.Dispose();
 		GC.SuppressFinalize(this);
 	}
 
@@ -100,7 +100,7 @@ abstract class Pattern : ClipContents, IDisposable {
 		float scaleX = Macro.scaleX;
 		float scaleY = Macro.scaleY;
 
-		rlColor[] previewPixels = this.previewTexturePixels;
+		RGBA[] pixels = this.previewTexture.pixels;
 		float widthMinusOne = PreviewWidth - 1f;
 		for (int y = 0; y < PreviewHeight; y++)
 		for (int x = 0; x < PreviewWidth; x++) {
@@ -109,13 +109,13 @@ abstract class Pattern : ClipContents, IDisposable {
 			float y01 = y / widthMinusOne * scaleY;
 
 			HSB pixel = this.Render(i, x01, y01);
-			previewPixels[i] = (rlColor)pixel.ToRGB();
+			pixels[i] = pixel.ToRGBA();
 		}
 
-		rl.UpdateTexture(this.previewTexture, this.previewTexturePixels);
+		this.previewTexture.Update();
 	}
 
-	public void RenderTo(RGB[] leds, Vector2[] coords, Vector2 bounds, Palette? palette) {
+	public void RenderTo(RGBA[] leds, Vector2[] coords, Vector2 bounds, Palette? palette) {
 		float scaleX = Macro.scaleX;
 		float scaleY = Macro.scaleY;
 		float hueOffset = Macro.hue_offset;
@@ -131,7 +131,7 @@ abstract class Pattern : ClipContents, IDisposable {
 			if (palette != null)
 				color = palette.gradient.MapColor(color);
 
-			leds[i] = color.ToRGB();
+			leds[i] = color.ToRGBA();
 		}
 	}
 

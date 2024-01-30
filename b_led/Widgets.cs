@@ -2,7 +2,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using IconFonts;
 using static b_effort.b_led.ImGuiShorthand;
-using static b_effort.b_led.Interop.ImGuiInternal;
+using static b_effort.b_led.interop.ImGuiEx;
 using static ImGuiNET.ImGui;
 
 namespace b_effort.b_led;
@@ -432,7 +432,7 @@ static class Widgets {
 				SameLine(0, em(1.4f));
 				ColorButton("##edit_current", (Vector4)selectedPoint.color, colorButtonFlags, em(3, 0));
 
-				RGB revertRgb = state.RevertColor.ToRGB();
+				RGBA revertRgb = state.RevertColor.ToRGBA();
 				uint revertButtonColor = revertRgb.ToU32();
 				PushStyleColor(ImGuiCol.Button, revertButtonColor);
 				PushStyleColor(ImGuiCol.ButtonHovered, revertButtonColor);
@@ -509,13 +509,13 @@ static class Widgets {
 	}
 
 	static readonly uint[] RainbowHues = {
-		new RGB(255, 000, 000).ToU32(),
-		new RGB(255, 255, 000).ToU32(),
-		new RGB(000, 255, 000).ToU32(),
-		new RGB(000, 255, 255).ToU32(),
-		new RGB(000, 000, 255).ToU32(),
-		new RGB(255, 000, 255).ToU32(),
-		new RGB(255, 000, 000).ToU32(),
+		new RGBA(255, 000, 000).ToU32(),
+		new RGBA(255, 255, 000).ToU32(),
+		new RGBA(000, 255, 000).ToU32(),
+		new RGBA(000, 255, 255).ToU32(),
+		new RGBA(000, 000, 255).ToU32(),
+		new RGBA(255, 000, 255).ToU32(),
+		new RGBA(255, 000, 000).ToU32(),
 	};
 
 	public static bool ColorPickerHSB(string id, ref HSB color) {
@@ -641,9 +641,9 @@ static class Widgets {
 		float barHeight,
 		float alpha
 	) {
-		byte alpha8 = f32_to_int8(alpha);
-		uint colorArrow = new RGB(255, 255, 255, alpha8).ToU32();
-		uint colorOutline = new RGB(0, 0, 0, alpha8).ToU32();
+		byte alpha8 = f32_to_i8(alpha);
+		uint colorArrow = new RGBA(255, 255, 255, alpha8).ToU32();
+		uint colorOutline = new RGBA(0, 0, 0, alpha8).ToU32();
 		var halfSizeOutline = halfSize + vec2(1, 2);
 
 		RenderArrowPointingAt(drawList, pos + vec2(0, halfSize.Y), halfSizeOutline, ImGuiDir.Down, colorOutline);

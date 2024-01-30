@@ -2,7 +2,7 @@ using IconFonts;
 using static ImGuiNET.ImGui;
 using static b_effort.b_led.Widgets;
 using static b_effort.b_led.ImGuiShorthand;
-using static b_effort.b_led.Interop.ImGuiInternal;
+using static b_effort.b_led.interop.ImGuiEx;
 
 namespace b_effort.b_led;
 
@@ -313,8 +313,8 @@ sealed class FixturesWindow {
 			fixture = null;
 		}
 
-		_fixture.UpdatePreview();
-		ImGuiUtil.ImageTextureFit(_fixture.PreviewTexture);
+		// _fixture.UpdatePreview();
+		// ImGuiUtil.ImageTextureFit(_fixture.PreviewTexture);
 	}
 }
 

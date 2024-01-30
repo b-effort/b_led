@@ -4,3 +4,7 @@
 [submodule "modules/SharpFFTW"]
 	path = modules/SharpFFTW
 	url = https://github.com/wo80/SharpFFTW.git
+[submodule "modules/cimgui"]
+	path = modules/cimgui
+	url = https://github.com/cimgui/cimgui.git
+	branch = 1.89.9dock

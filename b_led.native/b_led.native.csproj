@@ -1,0 +1,45 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net7.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+        <IncludeBuildOutput>false</IncludeBuildOutput>
+    </PropertyGroup>
+
+    <PropertyGroup Condition="$([MSBuild]::IsOSPlatform('Windows'))">
+        <NativeExt>dll</NativeExt>
+        <NativePre>$(Configuration)/</NativePre>
+    </PropertyGroup>
+    <PropertyGroup Condition="$([MSBuild]::IsOSPlatform('OSX'))">
+        <NativeExt>dylib</NativeExt>
+        <NativePre>lib</NativePre>
+    </PropertyGroup>
+    <PropertyGroup Condition="$([MSBuild]::IsOSPlatform('Linux'))">
+        <NativeExt>so</NativeExt>
+        <NativePre>lib</NativePre>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <Content Include="$(IntermediateOutputPath)native/cimgui/$(NativePre)cimgui.$(NativeExt)">
+            <Link>%(Filename)%(Extension)</Link>
+            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+            <Visible>false</Visible>
+        </Content>
+        <CMakeArgs Include="-B $(IntermediateOutputPath)native/cimgui" />
+        <CMakeArgs Include="-S $(MSBuildThisFileDirectory)/cimgui_glfw_opengl3" />
+    </ItemGroup>
+    <ItemDefinitionGroup>
+        <CMakeArgs Visible="false" />
+    </ItemDefinitionGroup>
+
+    <Target Name="ConfigureNative" BeforeTargets="BuildNative">
+        <Exec Command="cmake @(CMakeArgs, ' ') $(CMakeExtraArgs)" />
+    </Target>
+
+    <Target Name="BuildNative" BeforeTargets="BeforeBuild">
+        <Exec Command="cmake --build $(IntermediateOutputPath)native/cimgui --config $(Configuration)" />
+    </Target>
+
+</Project>

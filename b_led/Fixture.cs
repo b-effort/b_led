@@ -9,7 +9,6 @@ using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 using JetBrains.Annotations;
-using static Raylib_cs.Rlgl;
 
 namespace b_effort.b_led;
 
@@ -83,12 +82,12 @@ sealed class Fixture {
 		}
 	}
 
-	RGB[] leds;
+	RGBA[] leds;
 	Vector2[] coords;
 	public Vector2 Bounds { get; private set; }
 
 	readonly Preview preview;
-	public Texture2D PreviewTexture => this.preview.Texture;
+	// public Texture2D PreviewTexture => this.preview.Texture;
 
 	[JsonConstructor]
 	public Fixture(
@@ -113,7 +112,7 @@ sealed class Fixture {
 		this.worldPos = world_pos;
 
 		this.template = FixtureTemplate.FromId(template_id);
-		this.leds = new RGB[num_leds];
+		this.leds = new RGBA[num_leds];
 		this.coords = new Vector2[num_leds];
 		this.RebuildMap();
 
@@ -159,7 +158,7 @@ sealed class Fixture {
 		static int Height => (int)Config.PatternPreviewResolution.Y;
 
 		readonly Fixture fixture;
-		readonly RenderTexture2D rt;
+		// readonly RenderTexture2D rt;
 		uint vao;
 		uint vbo_leds;
 		uint vbo_coords;
@@ -170,11 +169,11 @@ sealed class Fixture {
 			this.fixture = fixture;
 			this.length = this.fixture.numLeds;
 
-			this.rt = rl.LoadRenderTexture(Width, Height);
+			// this.rt = rl.LoadRenderTexture(Width, Height);
 			this.InitShader();
 		}
 
-		public Texture2D Texture => this.rt.texture;
+		// public Texture2D Texture => this.rt.texture;
 
 		~Preview() => this.Dispose();
 
@@ -183,32 +182,31 @@ sealed class Fixture {
 			GC.SuppressFinalize(this);
 		}
 
-		// ! NORMALIZE COORDS
 		unsafe void InitShader() {
-			this.vao = rlLoadVertexArray();
-			rlEnableVertexArray(this.vao);
-			{
-				var leds = this.fixture.leds;
-				this.vbo_leds = rlLoadVertexBuffer(Unsafe.AsPointer(ref leds), this.length * sizeof(RGB), true);
-				rlSetVertexAttribute(0, 4, RL_UNSIGNED_BYTE, true, 0, (void*)0);
-				rlEnableVertexAttribute(0);
-
-				var coords = this.fixture.coords;
-				this.vbo_coords = rlLoadVertexBuffer(Unsafe.AsPointer(ref coords), this.length * sizeof(Vector2), true);
-				rlSetVertexAttribute(1, 2, RL_FLOAT, false, 0, (void*)0);
-				rlEnableVertexAttribute(1);
-
-				rlDisableVertexBuffer();
-			}
-			rlDisableVertexArray();
+			// this.vao = rlLoadVertexArray();
+			// rlEnableVertexArray(this.vao);
+			// {
+			// 	var leds = this.fixture.leds;
+			// 	this.vbo_leds = rlLoadVertexBuffer(Unsafe.AsPointer(ref leds), this.length * sizeof(RGB), true);
+			// 	rlSetVertexAttribute(0, 4, RL_UNSIGNED_BYTE, true, 0, (void*)0);
+			// 	rlEnableVertexAttribute(0);
+			//
+			// 	var coords = this.fixture.coords;
+			// 	this.vbo_coords = rlLoadVertexBuffer(Unsafe.AsPointer(ref coords), this.length * sizeof(Vector2), true);
+			// 	rlSetVertexAttribute(1, 2, RL_FLOAT, false, 0, (void*)0);
+			// 	rlEnableVertexAttribute(1);
+			//
+			// 	rlDisableVertexBuffer();
+			// }
+			// rlDisableVertexArray();
 
 			this.SetBounds();
 		}
 
 		void UnloadVAO() {
-			rlUnloadVertexBuffer(this.vbo_leds);
-			rlUnloadVertexBuffer(this.vbo_coords);
-			rlUnloadVertexArray(this.vao);
+			// rlUnloadVertexBuffer(this.vbo_leds);
+			// rlUnloadVertexBuffer(this.vbo_coords);
+			// rlUnloadVertexArray(this.vao);
 			this.vbo_leds = 0;
 			this.vbo_coords = 0;
 			this.vao = 0;
@@ -222,37 +220,37 @@ sealed class Fixture {
 
 		public unsafe void UpdateCoordsBuffer() {
 			var coords = this.fixture.coords;
-			rlUpdateVertexBuffer(this.vbo_coords, Unsafe.AsPointer(ref coords), this.length * sizeof(Vector2), 0);
+			// rlUpdateVertexBuffer(this.vbo_coords, Unsafe.AsPointer(ref coords), this.length * sizeof(Vector2), 0);
 			this.SetBounds();
 		}
 
 		void SetBounds() {
-			rl.SetShaderValue(
-				Shaders.FixturePreview, Shaders.FixturePreview_Uniform_Bounds,
-				this.fixture.Bounds, ShaderUniformDataType.SHADER_UNIFORM_VEC2
-			);
+			// rl.SetShaderValue(
+			// 	Shaders.FixturePreview, Shaders.FixturePreview_Uniform_Bounds,
+			// 	this.fixture.Bounds, ShaderUniformDataType.SHADER_UNIFORM_VEC2
+			// );
 		}
 
 		public unsafe void UpdateTexture() {
 			var leds = this.fixture.leds;
-			rlUpdateVertexBuffer(this.vbo_leds, Unsafe.AsPointer(ref leds), this.length * sizeof(RGB), 0);
-
-			rl.BeginTextureMode(this.rt);
-			{
-				rl.ClearBackground(rlColor.BLACK);
-				rlDrawRenderBatchActive();
-
-				rl.BeginShaderMode(Shaders.FixturePreview);
-				{
-					rlEnableVertexArray(this.vao);
-					{
-						rlDrawVertexArray(0, this.length);
-					}
-					rlDisableVertexArray();
-				}
-				rl.EndShaderMode();
-			}
-			rl.EndTextureMode();
+			// rlUpdateVertexBuffer(this.vbo_leds, Unsafe.AsPointer(ref leds), this.length * sizeof(RGB), 0);
+			//
+			// rl.BeginTextureMode(this.rt);
+			// {
+			// 	rl.ClearBackground(rlColor.BLACK);
+			// 	rlDrawRenderBatchActive();
+			//
+			// 	rl.BeginShaderMode(Shaders.FixturePreview);
+			// 	{
+			// 		rlEnableVertexArray(this.vao);
+			// 		{
+			// 			rlDrawVertexArray(0, this.length);
+			// 		}
+			// 		rlDisableVertexArray();
+			// 	}
+			// 	rl.EndShaderMode();
+			// }
+			// rl.EndTextureMode();
 		}
 	}
 }
@@ -338,7 +336,7 @@ static class FixtureServer {
 			for (var y = 0; y < Greg.BufferWidth; y++) {
 				for (var x = 0; x < Greg.BufferWidth; x++) {
 					// var color = inputs[y, x];
-					RGB color = new RGB(0, 0, 0);
+					RGBA color = new RGBA(0, 0, 0);
 
 					var i = (y * Greg.BufferWidth + x) * 3 + 1;
 					sendBuffer[i + 0] = color.r;

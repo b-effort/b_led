@@ -2,17 +2,21 @@
 global using System.Collections.Generic;
 global using System.Linq;
 global using System.Numerics;
-global using Color = b_effort.b_led.Color;
-global using Raylib_cs;
-global using rl = Raylib_cs.Raylib;
-global using rlColor = Raylib_cs.Color;
-global using rlImGui_cs;
+global using Vector2 = System.Numerics.Vector2;
 global using ImGuiNET;
 global using fftw = SharpFFTW.Single;
+global using gl = OpenTK.Graphics.OpenGL4.GL;
 global using static b_effort.b_led.Color;
+
 using System.Diagnostics;
 using System.Threading;
 using b_effort.b_led;
+using b_effort.b_led.interop;
+using OpenTK.Windowing.Common;
+using OpenTK.Windowing.Desktop;
+using OpenTK.Windowing.GraphicsLibraryFramework;
+using OpenTK.Graphics.OpenGL4;
+using OpenTKUtils = OpenTK.Core.Utils;
 
 /*
 
@@ -42,139 +46,204 @@ buffers are [y, x] = [y * width + x]
 
  */
 
-const int FPS = 144;
-int width = 1280;
-int height = 1280;
-
-#region init
-
 if (OperatingSystem.IsWindows()) {
 	Thread.CurrentThread.SetApartmentState(ApartmentState.Unknown);
 	Thread.CurrentThread.SetApartmentState(ApartmentState.STA);
+	kernel32.SetThreadAffinityMask(kernel32.GetCurrentThread(), 1);
 }
 
-rl.SetConfigFlags(ConfigFlags.FLAG_WINDOW_RESIZABLE);
-rl.InitWindow(width, height, "b_led");
-rl.SetTargetFPS(FPS);
-
-rlImGui.SetupUserFonts = ImFonts.SetupUserFonts;
-rlImGui.Setup(enableDocking: true);
-
-var style = ImGui.GetStyle();
-style.ItemInnerSpacing = vec2(8, 4);
-// ImGui.GetStyle().ScaleAllSizes(1.30f);
-
-ImGui.SetColorEditOptions(
-	ImGuiColorEditFlags.NoAlpha
-  | ImGuiColorEditFlags.Float
-  | ImGuiColorEditFlags.InputHSV | ImGuiColorEditFlags.DisplayHSV
+using var window = new MainWindow(
+	width: 1280,
+	height: 1280,
+	fps: 144
 );
+window.Run();
 
-#endregion
+sealed class MainWindow : NativeWindow {
+	readonly int fps;
 
-#region app setup
+	readonly PreviewWindow previewWindow;
+	readonly PalettesWindow palettesWindow;
+	readonly PatternsWindow patternsWindow;
+	readonly SequencesWindow sequencesWindow;
+	readonly ClipsWindow clipsWindow;
+	readonly FixturesWindow fixturesWindow;
+	readonly AudioWindow audioWindow;
+	readonly MetronomeWindow metronomeWindow;
+	readonly MacrosWindow macrosWindow;
+	readonly PushWindow pushWindow;
+	readonly FuncPlotterWindow funcPlotterWindow;
 
-try {
-	Greg.LoadProject();
-} catch (Exception e) {
-	Console.WriteLine(e);
-	Greg.LoadDemoProject();
-}
+	public unsafe MainWindow(int width, int height, int fps) : base(
+		new NativeWindowSettings {
+			Title = "b_led",
+			ClientSize = (width, height),
+			Vsync = VSyncMode.Off,
+		}
+	) {
+		this.fps = fps;
 
-var previewWindow = new PreviewWindow();
-var palettesWindow = new PalettesWindow();
-var patternsWindow = new PatternsWindow();
-var sequencesWindow = new SequencesWindow();
-var clipsWindow = new ClipsWindow();
-var fixturesWindow = new FixturesWindow();
-var audioWindow = new AudioWindow();
-var metronomeWindow = new MetronomeWindow();
-var macrosWindow = new MacrosWindow();
-var pushWindow = new PushWindow();
+		{ // # init imgui
+			ImGui.CreateContext();
 
-var funcPlotterWindow = new FuncPlotterWindow {
-	Funcs = new() {
-		("saw", PatternScript.saw),
-		("sine", PatternScript.sine),
-		("triangle", PatternScript.triangle),
-		("square", PatternScript.square),
-	},
-};
+			var io = ImGui.GetIO();
+			io.ConfigFlags |= ImGuiConfigFlags.DockingEnable;
+			ImFonts.LoadFonts(io);
 
-Push2.Connect();
-// FixtureServer.Start();
+			ImGui_Glfw.InitForOpenGL(this.WindowPtr, true);
+			var glVersion = gl.GetString(StringName.Version);
+			var glslVersion = gl.GetString(StringName.ShadingLanguageVersion);
+			Console.WriteLine($"GL Version: {glVersion}");
+			Console.WriteLine($"GLSL Version: {glslVersion}");
+			ImGui_OpenGL3.Init();
 
-#endregion
+			ImGui.StyleColorsDark();
+			var style = ImGui.GetStyle();
+			style.ItemInnerSpacing = vec2(8, 4);
 
-var deltaTimer = Stopwatch.StartNew();
-float deltaTime = 1f / FPS;
+			// ImGui.GetStyle().ScaleAllSizes(1.30f);
 
-while (!rl.WindowShouldClose()) {
-	if (rl.IsWindowResized()) {
-		width = rl.GetRenderWidth();
-		height = rl.GetRenderHeight();
+			ImGui.SetColorEditOptions(
+				ImGuiColorEditFlags.NoAlpha
+			  | ImGuiColorEditFlags.Float
+			  | ImGuiColorEditFlags.InputHSV | ImGuiColorEditFlags.DisplayHSV
+			);
+		}
+
+		// # load project
+		try {
+			Greg.LoadProject();
+		} catch (Exception e) {
+			Console.WriteLine(e);
+			Greg.LoadDemoProject();
+		}
+
+		// # create windows
+		this.previewWindow = new PreviewWindow();
+		this.palettesWindow = new PalettesWindow();
+		this.patternsWindow = new PatternsWindow();
+		this.sequencesWindow = new SequencesWindow();
+		this.clipsWindow = new ClipsWindow();
+		this.fixturesWindow = new FixturesWindow();
+		this.audioWindow = new AudioWindow();
+		this.metronomeWindow = new MetronomeWindow();
+		this.macrosWindow = new MacrosWindow();
+		this.pushWindow = new PushWindow();
+
+		this.funcPlotterWindow = new FuncPlotterWindow {
+			Funcs = new() {
+				("saw", PatternScript.saw),
+				("sine", PatternScript.sine),
+				("triangle", PatternScript.triangle),
+				("square", PatternScript.square),
+			},
+		};
+
+		Push2.Connect();
+		// FixtureServer.Start();
 	}
 
-	Update(deltaTime);
+	public override void Dispose() {
+		AudioIn.Close();
+		Push2.Dispose();
+		// Shaders.Unload();
 
-	rl.BeginDrawing();
-	{
-		rl.ClearBackground(rlColor.BLACK);
+		ImGui_OpenGL3.Shutdown();
+		ImGui_Glfw.Shutdown();
+		ImGui.DestroyContext();
 
-		rlImGui.Begin(deltaTime);
-		DrawUI();
-		rlImGui.End();
-		rl.DrawFPS(width - 84, 4);
+		base.Dispose();
 	}
-	rl.EndDrawing();
 
-	deltaTime = (float)deltaTimer.Elapsed.TotalSeconds;
-	deltaTimer.Restart();
-}
+	public unsafe void Run() {
+		if (OperatingSystem.IsWindows()) {
+			winmm.timeBeginPeriod(Config.SleepSchedulerPeriod);
+		}
 
-AudioIn.Close();
-Push2.Dispose();
-Shaders.Unload();
-rlImGui.Shutdown();
-rl.CloseWindow();
-return;
+		double targetFrameTime = 1f / this.fps;
+		var deltaTimer = Stopwatch.StartNew();
 
-void Update(float deltaTime) {
-	Push2.Update();
-	Metronome.Tickle(deltaTime);
-	Greg.Update();
+		while (!GLFW.WindowShouldClose(this.WindowPtr)) {
+			double deltaTime = deltaTimer.Elapsed.TotalSeconds;
+			float deltaTimeF = (float)deltaTime;
 
-	FixtureServer.Update(deltaTime);
-}
+			if (deltaTime > targetFrameTime) {
+				deltaTimer.Restart();
 
-void DrawUI() {
-	ImGui.DockSpaceOverViewport();
+				this.NewInputFrame();
+				GLFW.PollEvents();
+				GLFW.MakeContextCurrent(this.WindowPtr);
+				var io = ImGui.GetIO();
 
-	if (ImGui.BeginMainMenuBar()) {
-		if (ImGui.BeginMenu("File")) {
-			if (ImGui.MenuItem("Save")) {
-				Greg.SaveProject();
+				ImGui_OpenGL3.NewFrame();
+				ImGui_Glfw.NewFrame();
+				ImGui.NewFrame();
+
+				// if (rl.IsWindowResized()) {
+				// 	width = rl.GetRenderWidth();
+				// 	height = rl.GetRenderHeight();
+				// }
+
+				this.Update(deltaTimeF);
+				this.RenderUI();
+				// rl.DrawFPS(width - 84, 4);
+
+				ImGui.Render();
+				gl.Viewport(0, 0, this.ClientSize.X, this.ClientSize.Y);
+				gl.ClearColor(0, 0, 0, 1f);
+				gl.Clear(ClearBufferMask.ColorBufferBit);
+				var dd = ImGui.GetDrawData();
+				// ImGui_OpenGL3.RenderDrawData(ImGuiNative.igGetDrawData());
+				ImGui_OpenGL3.RenderDrawData(dd.NativePtr);
+				GLFW.SwapBuffers(this.WindowPtr);
 			}
-			if (ImGui.MenuItem("Load")) {
-				Greg.LoadProject();
-			}
-			if (ImGui.MenuItem("Load demo project")) {
-				Greg.LoadDemoProject();
-			}
+
+			double remainingTime = targetFrameTime - deltaTime;
+			OpenTKUtils.AccurateSleep(remainingTime, Config.SleepSchedulerPeriod);
+		}
+
+		if (OperatingSystem.IsWindows()) {
+			winmm.timeBeginPeriod(Config.SleepSchedulerPeriod);
 		}
 	}
 
-	previewWindow.Show();
-	palettesWindow.Show();
-	clipsWindow.Show();
-	sequencesWindow.Show();
-	patternsWindow.Show();
-	fixturesWindow.Show();
-	audioWindow.Show();
-	metronomeWindow.Show();
-	macrosWindow.Show();
-	// funcPlotterWindow.Show();
-	pushWindow.Show();
+	void Update(float deltaTime) {
+		Push2.Update();
+		Metronome.Tickle(deltaTime);
+		Greg.Update();
+
+		FixtureServer.Update(deltaTime);
+	}
+
+	void RenderUI() {
+		ImGui.DockSpaceOverViewport();
+
+		if (ImGui.BeginMainMenuBar()) {
+			if (ImGui.BeginMenu("File")) {
+				if (ImGui.MenuItem("Save")) {
+					Greg.SaveProject();
+				}
+				if (ImGui.MenuItem("Load")) {
+					Greg.LoadProject();
+				}
+				if (ImGui.MenuItem("Load demo project")) {
+					Greg.LoadDemoProject();
+				}
+			}
+		}
+
+		this.previewWindow.Show();
+		this.palettesWindow.Show();
+		this.clipsWindow.Show();
+		this.sequencesWindow.Show();
+		this.patternsWindow.Show();
+		this.fixturesWindow.Show();
+		this.audioWindow.Show();
+		this.metronomeWindow.Show();
+		this.macrosWindow.Show();
+		// this.funcPlotterWindow.Show();
+		this.pushWindow.Show();
+	}
 }
 
 static class Config {
@@ -182,6 +251,9 @@ static class Config {
 
 	public static readonly Vector2 FullPreviewResolution = vec2(800, 600);
 	public static readonly Vector2 PatternPreviewResolution = vec2(64);
+
+	// https://github.com/opentk/opentk/blob/f3539ad1fda98af9b265e941e0aecfb4662a9bbe/src/OpenTK.Windowing.Desktop/GameWindow.cs#L236
+	public const int SleepSchedulerPeriod = 8;
 }
 
 static class ImFonts {
@@ -192,10 +264,8 @@ static class ImFonts {
 	public static ImFontPtr Mono_15 { get; private set; }
 	public static ImFontPtr Mono_17 { get; private set; }
 
-	public static unsafe void SetupUserFonts(ImGuiIOPtr io) {
-		io.Fonts.Clear();
-
-		ImFontConfig fontCfg = new ImFontConfig {
+	public static unsafe void LoadFonts(ImGuiIOPtr io) {
+		var config = new ImFontConfig {
 			OversampleH = 3,
 			OversampleV = 3,
 			PixelSnapH = 1,
@@ -204,9 +274,9 @@ static class ImFonts {
 			FontDataOwnedByAtlas = 1,
 		};
 
-		Mono_17 = io.LoadTTF(JetBrainsMono_Regular_TTF, 17, &fontCfg);
-		rlImGui.LoadFontAwesome(px_to_pt(13));
-		Mono_15 = io.LoadTTF(JetBrainsMono_Regular_TTF, 15, &fontCfg);
+		Mono_17 = io.LoadTTF(JetBrainsMono_Regular_TTF, 17, &config);
+		IconFonts.FontAwesome6.Load(io, px_to_pt(13));
+		Mono_15 = io.LoadTTF(JetBrainsMono_Regular_TTF, 15, &config);
 
 		Default = Mono_17;
 	}
@@ -217,16 +287,16 @@ static class ImFonts {
 	static int px_to_pt(int px) => px * 96 / 72;
 }
 
-static class Shaders {
-	const string ShadersPath = $"{Config.AssetsPath}/shaders";
-
-	public static readonly Shader FixturePreview = rl.LoadShader(
-		$"{ShadersPath}/fixture_preview.vert",
-		$"{ShadersPath}/fixture_preview.frag"
-	);
-	public static readonly int FixturePreview_Uniform_Bounds = rl.GetShaderLocation(FixturePreview, "bounds");
-
-	public static void Unload() {
-		rl.UnloadShader(FixturePreview);
-	}
-}
+// static class Shaders {
+// 	const string ShadersPath = $"{Config.AssetsPath}/shaders";
+//
+// 	public static readonly Shader FixturePreview = rl.LoadShader(
+// 		$"{ShadersPath}/fixture_preview.vert",
+// 		$"{ShadersPath}/fixture_preview.frag"
+// 	);
+// 	public static readonly int FixturePreview_Uniform_Bounds = rl.GetShaderLocation(FixturePreview, "bounds");
+//
+// 	public static void Unload() {
+// 		rl.UnloadShader(FixturePreview);
+// 	}
+// }

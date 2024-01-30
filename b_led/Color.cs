@@ -1,14 +1,15 @@
 using System.Runtime.Serialization;
 using System.Text.Json.Serialization;
+using b_effort.b_led.graphics;
 
 namespace b_effort.b_led;
 
 static class Color {
 	// ! This is sRGB
-	public readonly record struct RGB(byte r, byte g, byte b, byte a = 255) {
-		public RGB ContrastColor() => PerceivedLightness(this) < 0.5f
-				? new RGB(255, 255, 255)
-				: new RGB(0, 0, 0);
+	public readonly record struct RGBA(byte r, byte g, byte b, byte a = 255) {
+		public RGBA ContrastColor() => PerceivedLightness(this) < 0.5f
+				? new RGBA(255, 255, 255)
+				: new RGBA(0, 0, 0);
 
 		[Impl(Inline)] public uint ToU32() {
 			return (uint)(
@@ -19,11 +20,9 @@ static class Color {
 			);
 		}
 
-		[Impl(Inline)] public Vector4 ToVec4(RGB @this) => new(
+		[Impl(Inline)] public Vector4 ToVec4(RGBA @this) => new(
 			@this.r / 255f, @this.g / 255f, @this.b / 255f, @this.a / 255f
 		);
-
-		public static explicit operator rlColor(RGB @this) => new(@this.r, @this.g, @this.b, @this.a);
 	}
 
 	public static HSB hsb(float h, float s = 1f, float b = 1f) {
@@ -46,10 +45,10 @@ static class Color {
 		[DataMember] public float s = s;
 		[DataMember] public float b = b;
 
-		[Impl(Inline)] public RGB ToRGB(float a = 1) {
+		[Impl(Inline)] public RGBA ToRGBA(float a = 1) {
 			if (this.s == 0) {
-				var value = f32_to_int8(this.b);
-				return new RGB(value, value, value, f32_to_int8(a));
+				var value = f32_to_i8(this.b);
+				return new RGBA(value, value, value, f32_to_i8(a));
 			}
 
 			float chroma = this.b * this.s;
@@ -92,22 +91,22 @@ static class Color {
 
 			float m = this.b - chroma;
 
-			return new RGB(
-				r: f32_to_int8(r + m),
-				g: f32_to_int8(g + m),
-				b: f32_to_int8(b + m),
-				a: f32_to_int8(a)
+			return new RGBA(
+				r: f32_to_i8(r + m),
+				g: f32_to_i8(g + m),
+				b: f32_to_i8(b + m),
+				a: f32_to_i8(a)
 			);
 		}
 
-		[Impl(Inline)] public uint ToU32() => this.ToRGB().ToU32();
+		[Impl(Inline)] public uint ToU32() => this.ToRGBA().ToU32();
 
 		public static explicit operator Vector3(HSB @this) => new(@this.h, @this.s, @this.b);
 		public static explicit operator Vector4(HSB @this) => new(@this.h, @this.s, @this.b, 1f);
 	}
 
 	public readonly record struct HSL(float h, float s, float l) {
-		public static HSL FromRGB(RGB rgb) => FromRGB(rgb.r / 255f, rgb.g / 255f, rgb.b / 255f);
+		public static HSL FromRGB(RGBA rgb) => FromRGB(rgb.r / 255f, rgb.g / 255f, rgb.b / 255f);
 
 		public static HSL FromRGB(float r, float g, float b) {
 			float max = MathF.Max(r, MathF.Max(g, b));
@@ -140,7 +139,7 @@ static class Color {
 		}
 	}
 
-	public static byte f32_to_int8(float value) => (byte)(value * 255 + 0.5f);
+	public static byte f32_to_i8(float value) => (byte)(value * 255 + 0.5f);
 
 	// https://stackoverflow.com/questions/596216/formula-to-determine-perceived-brightness-of-rgb-color/56678483#56678483
 	static float sRGB_to_lin(byte value) {
@@ -152,13 +151,13 @@ static class Color {
 	}
 
 	// Y in CIEXYZ
-	static float RelativeLuminance(RGB color)
+	static float RelativeLuminance(RGBA color)
 		=> 0.2126f * sRGB_to_lin(color.r)
 		 + 0.7152f * sRGB_to_lin(color.g)
 		 + 0.0722f * sRGB_to_lin(color.b);
 
 	// L* in CIELAB
-	static float PerceivedLightness(RGB color) {
+	static float PerceivedLightness(RGBA color) {
 		float y = RelativeLuminance(color);
 		float lStar = y <= 216 / 24389f
 			? y * (24389 / 27f)
@@ -262,31 +261,30 @@ sealed class GradientPreview : IDisposable {
 	public readonly Gradient gradient;
 	readonly int resolution;
 	readonly Texture2D texture;
-	readonly rlColor[] pixels;
 
-	public nint TextureId => (nint)this.texture.id;
+	public nint TextureId => this.texture.id;
 
 	public GradientPreview(Gradient gradient, int resolution) {
 		this.gradient = gradient;
 		this.resolution = resolution;
-		this.texture = rlUtil.CreateTexture(resolution, 1, out this.pixels);
+		this.texture = new Texture2D(resolution, 1);
 		this.UpdateTexture();
 	}
 
 	~GradientPreview() => this.Dispose();
 
 	public void Dispose() {
-		rl.UnloadTexture(this.texture);
+		this.texture.Dispose();
 		GC.SuppressFinalize(this);
 	}
 
 	public void UpdateTexture() {
-		var pixels = this.pixels;
+		RGBA[] pixels = this.texture.pixels;
 		for (var x = 0; x < this.resolution; x++) {
-			var color = this.gradient.MapColor(hsb((float)x / this.resolution));
-			pixels[x] = (rlColor)color.ToRGB();
+			HSB color = this.gradient.MapColor(hsb((float)x / this.resolution));
+			pixels[x] = color.ToRGBA();
 		}
-		rl.UpdateTexture(this.texture, pixels);
+		this.texture.Update();
 	}
 
 }

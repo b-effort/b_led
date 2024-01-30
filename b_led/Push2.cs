@@ -447,7 +447,7 @@ static class Push2 {
 		Enumerable.Repeat((byte)SysExCommands.SetPaletteEntry, 10)
 	).ToArray();
 	static void SetPalletEntry(int i, HSB hsb, float white) {
-		var (r, g, b, w) = hsb.ToRGB(a: white);
+		var (r, g, b, w) = hsb.ToRGBA(a: white);
 		
 		byte[] bytes = SetPaletteEntryBytes;
 		int offset = SysExDataOffset;

@@ -1,10 +1,14 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="UserContentModel">
-    <attachedFolders />
+    <attachedFolders>
+      <Path>modules/cimgui</Path>
+    </attachedFolders>
     <explicitIncludes />
     <explicitExcludes>
       <Path>b_led/Misc/JetBrainsAnnotations.cs</Path>
+      <Path>b_led/assets/IconsFontAwesome6.cs</Path>
+      <Path>b_led/assets/IconsFontAwesome6.data.cs</Path>
       <Path>modules/rlImGui-cs/rlImGui</Path>
     </explicitExcludes>
   </component>

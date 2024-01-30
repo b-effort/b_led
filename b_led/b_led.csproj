@@ -13,24 +13,26 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <PackageReference Include="ImGui.NET" Version="1.89.9.3" />
+        <PackageReference Include="ImGui.NET" Version="1.89.9.3">
+            <ExcludeAssets>native</ExcludeAssets>
+        </PackageReference>
         <PackageReference Include="NAudio.Asio" Version="2.2.1" />
-        <PackageReference Include="Raylib-cs" Version="4.5.0.4" />
+        <PackageReference Include="OpenTK.Graphics" Version="4.8.2" />
+        <PackageReference Include="OpenTK.Windowing.Desktop" Version="4.8.2" />
         <PackageReference Include="RtMidi.Core" Version="1.0.53" GeneratePathProperty="true">
             <ExcludeAssets>build</ExcludeAssets>
         </PackageReference>
     </ItemGroup>
-
     <ItemGroup>
-        <ProjectReference Include="..\modules\rlImGui-cs\rlImGui\rlImGui.csproj" />
+        <ProjectReference Include="..\b_led.native\b_led.native.csproj" />
         <ProjectReference Include="..\modules\SharpFFTW\SharpFFTW\SharpFFTW.csproj" />
     </ItemGroup>
-
+    
     <ItemGroup>
         <None Remove="imgui.ini" />
     </ItemGroup>
 
-    <ItemGroup>
+    <ItemGroup> <!--  Copy these manually so we can set Visible=false  -->
         <None Include="$(PkgRtMidi_Core)\build\librtmidi.dylib">
             <Link>librtmidi.dylib</Link>
             <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
@@ -47,4 +49,5 @@
             <Visible>false</Visible>
         </None>
     </ItemGroup>
+
 </Project>

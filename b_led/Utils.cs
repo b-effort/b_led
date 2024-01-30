@@ -2,6 +2,7 @@ global using static b_effort.b_led.MethodImplShorthand;
 global using static b_effort.b_led.VectorShorthand;
 global using ImplAttribute = System.Runtime.CompilerServices.MethodImplAttribute;
 using System.Runtime.CompilerServices;
+using b_effort.b_led.graphics;
 
 namespace b_effort.b_led;
 
@@ -83,7 +84,7 @@ static class ImGuiUtil {
 			// ReSharper restore PossibleLossOfFraction
 		}
 
-		ImGui.Image((nint)texture.id, vec2(sizeX, sizeY));
+		ImGui.Image(texture.id, vec2(sizeX, sizeY));
 	}
 
 	public static void AddImageOrEmpty(this ImDrawListPtr drawList, nint? textureId, Vector2 p_min, Vector2 p_max) {
@@ -94,28 +95,6 @@ static class ImGuiUtil {
 		} else {
 			drawList.AddRectFilled(p_min, p_max, bgColor);
 		}
-	}
-}
-
-static class rlUtil {
-	public static unsafe Texture2D CreateTexture(Vector2 size, out rlColor[] pixels) =>
-		CreateTexture((int)size.X, (int)size.Y, out pixels);
-	public static unsafe Texture2D CreateTexture(int width, int height, out rlColor[] pixels) {
-		const PixelFormat pixelFormat = PixelFormat.PIXELFORMAT_UNCOMPRESSED_R8G8B8A8;
-
-		Texture2D texture = new Texture2D {
-			width = width,
-			height = height,
-			format = pixelFormat,
-			mipmaps = 1,
-		};
-
-		pixels = new rlColor[width * height];
-		fixed (void* data = pixels) {
-			texture.id = Rlgl.rlLoadTexture(data, width, height, pixelFormat, 1);
-		}
-
-		return texture;
 	}
 }
 
