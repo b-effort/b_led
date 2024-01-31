@@ -14,7 +14,6 @@ set(FETCHCONTENT_QUIET NO)
 add_definitions("-DCIMGUI_USE_GLFW")
 add_definitions("-DCIMGUI_USE_OPENGL3")
 
-#add_definitions("-DIMGUI_IMPL_OPENGL_LOADER_GL3W")
 add_definitions("-DIMGUI_DISABLE_OBSOLETE_FUNCTIONS=1")
 if (WIN32)
     add_definitions("-DIMGUI_IMPL_API=extern \"C\" __declspec(dllexport)")
@@ -30,7 +29,6 @@ set(BACKENDS_DIR "${CIMGUI_DIR}/imgui/backends")
 include_directories(${CIMGUI_DIR})
 include_directories(${CIMGUI_DIR}/imgui)
 include_directories(${CIMGUI_DIR}/imgui/backends)
-include_directories(${CIMGUI_DIR}/imgui/examples/libs/glfw/include)
 
 file(GLOB IMGUI_SOURCES
     ${CIMGUI_DIR}/cimgui.cpp
@@ -58,7 +56,7 @@ FetchContent_Declare(glfw URL https://github.com/glfw/glfw/archive/refs/tags/${G
 FetchContent_GetProperties(glfw)
 if (NOT glfw_POPULATED)
     FetchContent_Populate(glfw)
-    set(BUILD_SHARED_LIBS ON CACHE BOOL "" FORCE)
+    set(BUILD_SHARED_LIBS ON CACHE BOOL "" FORCE) # use glfw from opentk
     set(GLFW_BUILD_DOCS OFF CACHE BOOL "" FORCE)
     set(GLFW_BUILD_TESTS OFF CACHE BOOL "" FORCE)
     set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
@@ -66,18 +64,13 @@ if (NOT glfw_POPULATED)
 endif()
 include_directories(${glfw_SOURCE_DIR}/include)
 
-# link with glfw
-# add library and link
+# link and build
 add_library(cimgui SHARED ${IMGUI_SOURCES})
-#add_library(cimgui SHARED ${IMGUI_SOURCES_glfw} $<TARGET_OBJECTS:cimgui_base>)
-# add_library(cimgui SHARED $<TARGET_OBJECTS:cimgui_base>)
-add_definitions("-DGLFW_DLL")
 target_link_libraries(cimgui
     PUBLIC ${IMGUI_LIBRRIES}
     PRIVATE glfw
 )
 
-#install
 install(TARGETS cimgui
     RUNTIME DESTINATION "${CMAKE_BINARY_DIR}/cimgui"
     LIBRARY DESTINATION "${CMAKE_BINARY_DIR}/cimgui"

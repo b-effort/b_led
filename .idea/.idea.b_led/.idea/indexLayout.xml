@@ -3,12 +3,21 @@
   <component name="UserContentModel">
     <attachedFolders>
       <Path>modules/cimgui</Path>
+      <Path>modules/cimgui/imgui</Path>
     </attachedFolders>
     <explicitIncludes />
     <explicitExcludes>
       <Path>b_led/Misc/JetBrainsAnnotations.cs</Path>
       <Path>b_led/assets/IconsFontAwesome6.cs</Path>
       <Path>b_led/assets/IconsFontAwesome6.data.cs</Path>
+      <Path>modules/cimgui/.github</Path>
+      <Path>modules/cimgui/backend_test</Path>
+      <Path>modules/cimgui/generator</Path>
+      <Path>modules/cimgui/imgui/.github</Path>
+      <Path>modules/cimgui/imgui/backends</Path>
+      <Path>modules/cimgui/imgui/docs</Path>
+      <Path>modules/cimgui/imgui/examples</Path>
+      <Path>modules/cimgui/imgui/misc</Path>
       <Path>modules/rlImGui-cs/rlImGui</Path>
     </explicitExcludes>
   </component>
