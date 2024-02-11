@@ -8,7 +8,10 @@ using System.Text;
 using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
+using b_effort.b_led.graphics;
+using b_effort.b_led.resources;
 using JetBrains.Annotations;
+using OpenTK.Graphics.OpenGL4;
 
 namespace b_effort.b_led;
 
@@ -87,7 +90,7 @@ sealed class Fixture {
 	public Vector2 Bounds { get; private set; }
 
 	readonly Preview preview;
-	// public Texture2D PreviewTexture => this.preview.Texture;
+	public Texture2D PreviewTexture => this.preview.Texture;
 
 	[JsonConstructor]
 	public Fixture(
@@ -157,11 +160,13 @@ sealed class Fixture {
 		static int Width => (int)Config.PatternPreviewResolution.X;
 		static int Height => (int)Config.PatternPreviewResolution.Y;
 
+		static Shader_FixturePreview Shader => Shaders.FixturePreview;
+
 		readonly Fixture fixture;
-		// readonly RenderTexture2D rt;
-		uint vao;
-		uint vbo_leds;
-		uint vbo_coords;
+		readonly RenderTexture2D rt;
+		int vao;
+		int vbo_leds;
+		int vbo_coords;
 
 		int length;
 
@@ -169,11 +174,11 @@ sealed class Fixture {
 			this.fixture = fixture;
 			this.length = this.fixture.numLeds;
 
-			// this.rt = rl.LoadRenderTexture(Width, Height);
+			this.rt = new RenderTexture2D(Width, Height);
 			this.InitShader();
 		}
 
-		// public Texture2D Texture => this.rt.texture;
+		public Texture2D Texture => this.rt.texture;
 
 		~Preview() => this.Dispose();
 
@@ -183,30 +188,44 @@ sealed class Fixture {
 		}
 
 		unsafe void InitShader() {
-			// this.vao = rlLoadVertexArray();
-			// rlEnableVertexArray(this.vao);
-			// {
-			// 	var leds = this.fixture.leds;
-			// 	this.vbo_leds = rlLoadVertexBuffer(Unsafe.AsPointer(ref leds), this.length * sizeof(RGB), true);
-			// 	rlSetVertexAttribute(0, 4, RL_UNSIGNED_BYTE, true, 0, (void*)0);
-			// 	rlEnableVertexAttribute(0);
-			//
-			// 	var coords = this.fixture.coords;
-			// 	this.vbo_coords = rlLoadVertexBuffer(Unsafe.AsPointer(ref coords), this.length * sizeof(Vector2), true);
-			// 	rlSetVertexAttribute(1, 2, RL_FLOAT, false, 0, (void*)0);
-			// 	rlEnableVertexAttribute(1);
-			//
-			// 	rlDisableVertexBuffer();
-			// }
-			// rlDisableVertexArray();
+			const BufferTarget target = BufferTarget.ArrayBuffer;
 
-			this.SetBounds();
+			this.vao = gl.GenVertexArray();
+			gl.BindVertexArray(this.vao);
+			{
+				int i = 0;
+				var leds = this.fixture.leds;
+				this.vbo_leds = gl.GenBuffer();
+				gl.BindBuffer(target, this.vbo_leds);
+				gl.BufferData(target, leds.ByteSize(), leds, BufferUsageHint.StreamDraw);
+				gl.VertexAttribFormat(i, 4, VertexAttribType.UnsignedByte, true, 0);
+				gl.VertexAttribBinding(i, i);
+				gl.EnableVertexAttribArray(i);
+				gl.BindVertexBuffer(i, this.vbo_leds, 0, sizeof(RGBA));
+
+				i = 1;
+				var coords = this.fixture.coords;
+				this.vbo_coords = gl.GenBuffer();
+				gl.BindBuffer(target, this.vbo_coords);
+				gl.BufferData(target, coords.ByteSize(), coords, BufferUsageHint.DynamicDraw);
+				gl.VertexAttribFormat(i, 2, VertexAttribType.Float, false, 0);
+				gl.VertexAttribBinding(i, i);
+				gl.EnableVertexAttribArray(i);
+				gl.BindVertexBuffer(i, this.vbo_coords, 0, sizeof(Vector2));
+
+				gl.BindBuffer(target, 0);
+			}
+			gl.BindVertexArray(0);
+
+			gl.Enable(EnableCap.ProgramPointSize);
+
+			this.UpdateBounds();
 		}
 
 		void UnloadVAO() {
-			// rlUnloadVertexBuffer(this.vbo_leds);
-			// rlUnloadVertexBuffer(this.vbo_coords);
-			// rlUnloadVertexArray(this.vao);
+			gl.DeleteBuffer(this.vbo_leds);
+			gl.DeleteBuffer(this.vbo_coords);
+			gl.DeleteVertexArray(this.vao);
 			this.vbo_leds = 0;
 			this.vbo_coords = 0;
 			this.vao = 0;
@@ -218,39 +237,28 @@ sealed class Fixture {
 			this.InitShader();
 		}
 
-		public unsafe void UpdateCoordsBuffer() {
+		public void UpdateCoordsBuffer() {
 			var coords = this.fixture.coords;
-			// rlUpdateVertexBuffer(this.vbo_coords, Unsafe.AsPointer(ref coords), this.length * sizeof(Vector2), 0);
-			this.SetBounds();
+			gl.NamedBufferSubData(this.vbo_coords, 0, coords.ByteSize(), coords);
+			this.UpdateBounds();
 		}
 
-		void SetBounds() {
-			// rl.SetShaderValue(
-			// 	Shaders.FixturePreview, Shaders.FixturePreview_Uniform_Bounds,
-			// 	this.fixture.Bounds, ShaderUniformDataType.SHADER_UNIFORM_VEC2
-			// );
-		}
+		void UpdateBounds() => Shader.Bounds(this.fixture.Bounds);
 
-		public unsafe void UpdateTexture() {
+		public void UpdateTexture() {
 			var leds = this.fixture.leds;
-			// rlUpdateVertexBuffer(this.vbo_leds, Unsafe.AsPointer(ref leds), this.length * sizeof(RGB), 0);
-			//
-			// rl.BeginTextureMode(this.rt);
-			// {
-			// 	rl.ClearBackground(rlColor.BLACK);
-			// 	rlDrawRenderBatchActive();
-			//
-			// 	rl.BeginShaderMode(Shaders.FixturePreview);
-			// 	{
-			// 		rlEnableVertexArray(this.vao);
-			// 		{
-			// 			rlDrawVertexArray(0, this.length);
-			// 		}
-			// 		rlDisableVertexArray();
-			// 	}
-			// 	rl.EndShaderMode();
-			// }
-			// rl.EndTextureMode();
+			gl.NamedBufferSubData(this.vbo_leds, 0, leds.ByteSize(), leds);
+
+			using (this.rt.Use())
+			using (Shader.Use()) {
+				glUtil.Clear();
+
+				gl.BindVertexArray(this.vao);
+				{
+					gl.DrawArrays(PrimitiveType.Points, 0, this.length);
+				}
+				gl.BindVertexArray(0);
+			}
 		}
 	}
 }

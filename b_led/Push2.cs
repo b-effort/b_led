@@ -1,6 +1,4 @@
-using System.Buffers;
 using System.Diagnostics.CodeAnalysis;
-using System.Linq;
 using RtMidi.Core;
 using RtMidi.Core.Devices;
 using RtMidi.Core.Enums;
@@ -47,7 +45,7 @@ static class Push2 {
 			SetPalletEntry(i, black, (float)i / PaletteSize);
 		}
 		ReapplyPalette();
-		
+
 		InitPadVelocities();
 	}
 
@@ -109,13 +107,13 @@ static class Push2 {
 			var pad = new Pad(i % 8, i / 8);
 			var palette = palettes[i];
 			var color = palette.gradient.ColorAt(paletteAnim);
-			
+
 			if (palette == Greg.ActivePalette) {
 				color.b *= PatternScript.beat.triangle(1, 0.5f);
 			}
-			
+
 			SetPadColor(pad, color);
-			
+
 			// if (WasPressed(pad)) {
 			// 	Greg.ActivePalette = palette;
 			// }
@@ -448,7 +446,7 @@ static class Push2 {
 	).ToArray();
 	static void SetPalletEntry(int i, HSB hsb, float white) {
 		var (r, g, b, w) = hsb.ToRGBA(a: white);
-		
+
 		byte[] bytes = SetPaletteEntryBytes;
 		int offset = SysExDataOffset;
 		bytes[offset + 1] = (byte)i;

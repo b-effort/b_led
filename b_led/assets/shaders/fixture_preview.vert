@@ -9,9 +9,11 @@ out vec4 ledColor;
 out vec2 ledCoord;
 
 void main() {
-//    ledColor = color;
-    ledColor = vec4(0.5, 0, 0.5, 1);
-    ledCoord = coord / bounds;
+    ledColor = color;
 
-    gl_Position = vec4(ledCoord.x, ledCoord.y, 0, 1);
+    ledCoord = coord / bounds;
+    ledCoord = (ledCoord - 0.5) * 1.5;
+
+    gl_Position = vec4(ledCoord.xy, 0, 1);
+    gl_PointSize = 1;
 }

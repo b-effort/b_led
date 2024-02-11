@@ -12,6 +12,10 @@ static class MethodImplShorthand {
 
 static class CollectionExtensions {
 	public static int NextOffset<T>(this IReadOnlyCollection<T> @this, int offset) => (offset + 1) % @this.Count;
+
+	public static unsafe int ByteSize<T>(this IReadOnlyCollection<T> @this)
+		where T : unmanaged
+		=> sizeof(T) * @this.Count;
 }
 
 static class VectorShorthand {
@@ -20,6 +24,13 @@ static class VectorShorthand {
 }
 
 static class VectorExtensions {
+	public static tkVector2 ToTk(this Vector2 @this) => new(@this.X, @this.Y);
+	public static tkVector3 ToTk(this Vector3 @this) => new(@this.X, @this.Y, @this.Z);
+	public static tkVector4 ToTk(this Vector4 @this) => new(@this.X, @this.Y, @this.Z, @this.W);
+	public static Vector2 ToNative(this tkVector2 @this) => new(@this.X, @this.Y);
+	public static Vector3 ToNative(this tkVector3 @this) => new(@this.X, @this.Y, @this.Z);
+	public static Vector4 ToNative(this tkVector4 @this) => new(@this.X, @this.Y, @this.Z, @this.W);
+
 	public static Vector2 Add(this Vector2 @this, float x = 0f, float y = 0f) {
 		if (x != 0f) @this.X += x;
 		if (y != 0f) @this.Y += y;

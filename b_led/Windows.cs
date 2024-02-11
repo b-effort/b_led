@@ -279,7 +279,7 @@ sealed class FixturesWindow {
 		PushItemWidth(em(-12));
 		InputTextWithHint("name", "fixture", ref fixture!.name, Fixture.Name_MaxLength);
 
-		if (BeginCombo("template", fixture.Template?.name)) {
+		if (BeginCombo("template", fixture.Template.name)) {
 			foreach (var template in Templates) {
 				bool isSelected = template == fixture.Template;
 				if (Selectable(template.name, isSelected))
@@ -313,8 +313,8 @@ sealed class FixturesWindow {
 			fixture = null;
 		}
 
-		// _fixture.UpdatePreview();
-		// ImGuiUtil.ImageTextureFit(_fixture.PreviewTexture);
+		_fixture.UpdatePreview();
+		ImGuiUtil.ImageTextureFit(_fixture.PreviewTexture);
 	}
 }
 

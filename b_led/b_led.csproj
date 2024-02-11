@@ -16,6 +16,7 @@
         <PackageReference Include="ImGui.NET" Version="1.89.9.3">
             <ExcludeAssets>native</ExcludeAssets>
         </PackageReference>
+        <PackageReference Include="JetBrains.Annotations" Version="2023.3.0" />
         <PackageReference Include="NAudio.Asio" Version="2.2.1" />
         <PackageReference Include="OpenTK.Graphics" Version="4.8.2" />
         <PackageReference Include="OpenTK.Windowing.Desktop" Version="4.8.2" />

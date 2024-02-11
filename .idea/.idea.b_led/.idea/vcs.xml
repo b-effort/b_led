@@ -3,6 +3,8 @@
   <component name="VcsDirectoryMappings">
     <mapping directory="$PROJECT_DIR$" vcs="Git" />
     <mapping directory="$PROJECT_DIR$/modules/SharpFFTW" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/modules/cimgui" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/modules/cimgui/imgui" vcs="Git" />
     <mapping directory="$PROJECT_DIR$/modules/rlImGui-cs" vcs="Git" />
   </component>
 </project>
