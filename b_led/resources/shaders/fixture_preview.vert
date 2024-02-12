@@ -12,8 +12,8 @@ void main() {
     ledColor = color;
 
     ledCoord = coord / bounds;
-    ledCoord = (ledCoord - 0.5) * 1.5;
+    ledCoord = (ledCoord - 0.5) * 1.75;
 
     gl_Position = vec4(ledCoord.xy, 0, 1);
-    gl_PointSize = 1;
+//    gl_PointSize = 10;
 }

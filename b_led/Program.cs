@@ -64,6 +64,20 @@ using var window = new MainWindow(
 );
 window.Run();
 
+static class Config {
+	public const string ResourcesPath = "resources";
+	public const string FontsPath = $"{ResourcesPath}/fonts";
+	public const string ShadersPath = $"{ResourcesPath}/shaders";
+
+	public static readonly Vector2 FullPreviewResolution = vec2(800, 600);
+	public static readonly Vector2 PatternPreviewResolution = vec2(64);
+	public static readonly Vector2 FixturePreviewResolution = vec2(512);
+
+	// https://github.com/opentk/opentk/blob/f3539ad1fda98af9b265e941e0aecfb4662a9bbe/src/OpenTK.Windowing.Desktop/GameWindow.cs#L236
+	public const int SleepSchedulerPeriod = 8;
+}
+
+
 sealed class MainWindow : NativeWindow {
 	readonly int fps;
 
@@ -242,45 +256,4 @@ sealed class MainWindow : NativeWindow {
 		// this.funcPlotterWindow.Show();
 		this.win_push.Show();
 	}
-}
-
-static class Config {
-	public const string AssetsPath = "assets";
-
-	public static readonly Vector2 FullPreviewResolution = vec2(800, 600);
-	public static readonly Vector2 PatternPreviewResolution = vec2(64);
-
-	// https://github.com/opentk/opentk/blob/f3539ad1fda98af9b265e941e0aecfb4662a9bbe/src/OpenTK.Windowing.Desktop/GameWindow.cs#L236
-	public const int SleepSchedulerPeriod = 8;
-}
-
-static class ImFonts {
-	const string JetBrainsMono_Regular_TTF = $"{Config.AssetsPath}/JetBrainsMono-Regular.ttf";
-
-	public static ImFontPtr Default { get; private set; }
-
-	public static ImFontPtr Mono_15 { get; private set; }
-	public static ImFontPtr Mono_17 { get; private set; }
-
-	public static unsafe void LoadFonts(ImGuiIOPtr io) {
-		var config = new ImFontConfig {
-			OversampleH = 3,
-			OversampleV = 3,
-			PixelSnapH = 1,
-			RasterizerMultiply = 1,
-			GlyphMaxAdvanceX = float.MaxValue,
-			FontDataOwnedByAtlas = 1,
-		};
-
-		Mono_17 = io.LoadTTF(JetBrainsMono_Regular_TTF, 17, &config);
-		IconFonts.FontAwesome6.Load(io, px_to_pt(13));
-		Mono_15 = io.LoadTTF(JetBrainsMono_Regular_TTF, 15, &config);
-
-		Default = Mono_17;
-	}
-
-	static ImFontPtr LoadTTF(this ImGuiIOPtr io, string file, int px, ImFontConfigPtr config)
-		=> io.Fonts.AddFontFromFileTTF(file, px_to_pt(px), config);
-
-	static int px_to_pt(int px) => px * 96 / 72;
 }

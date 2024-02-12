@@ -48,10 +48,12 @@ abstract class FixtureTemplate {
 
 	public readonly string name;
 	readonly LEDMapper mapper;
+	public readonly float ledSize;
 
-	protected FixtureTemplate(Guid id, LEDMapper mapper) {
+	protected FixtureTemplate(Guid id, LEDMapper mapper, float ledSize) {
 		this.Id = id;
 		this.mapper = mapper;
+		this.ledSize = ledSize;
 		this.name = this.GetDerivedNameFromType(trimPrefix: "Fixture");
 	}
 
@@ -157,8 +159,8 @@ sealed class Fixture {
 	}
 
 	sealed class Preview : IDisposable {
-		static int Width => (int)Config.PatternPreviewResolution.X;
-		static int Height => (int)Config.PatternPreviewResolution.Y;
+		static int Width => (int)Config.FixturePreviewResolution.X;
+		static int Height => (int)Config.FixturePreviewResolution.Y;
 
 		static Shader_FixturePreview Shader => Shaders.FixturePreview;
 
@@ -255,6 +257,7 @@ sealed class Fixture {
 
 				gl.BindVertexArray(this.vao);
 				{
+					gl.PointSize(this.fixture.template.ledSize / this.fixture.Bounds.X * Width * 0.875f);
 					gl.DrawArrays(PrimitiveType.Points, 0, this.length);
 				}
 				gl.BindVertexArray(0);

@@ -81,7 +81,7 @@ sealed record RenderTexture2D : IDisposable {
 
 		gl.BindFramebuffer(Target, this.id);
 		{
-			this.texture = new Texture2D(width, height);
+			this.texture = new Texture2D(width, height, minFilter: TextureMinFilter.Linear);
 			gl.FramebufferTexture2D(
 				Target, FramebufferAttachment.ColorAttachment0, TextureTarget.Texture2D,
 				this.texture.id, 0
@@ -117,8 +117,6 @@ sealed record RenderTexture2D : IDisposable {
 }
 
 abstract record Shader : IDisposable {
-	const string BasePath = $"{Config.AssetsPath}/shaders";
-
 	public readonly int id;
 
 	protected Shader(string vertPath, string fragPath) {
@@ -144,7 +142,7 @@ abstract record Shader : IDisposable {
 
 	static int CompileFromFile(ShaderType type, string path) {
 		int id = gl.CreateShader(type);
-		string source = File.ReadAllText($"{BasePath}/{path}");
+		string source = File.ReadAllText($"{Config.ShadersPath}/{path}");
 		gl.ShaderSource(id, source);
 		Compile(id);
 
