@@ -179,4 +179,5 @@ abstract record Shader : IDisposable {
 	public void SetVec2f(int loc, Vector2 value) => gl.ProgramUniform2(this.id, loc, value.ToTk());
 	public void SetVec3f(int loc, Vector3 value) => gl.ProgramUniform3(this.id, loc, value.ToTk());
 	public void SetVec4f(int loc, Vector4 value) => gl.ProgramUniform4(this.id, loc, value.ToTk());
+	public void SetMat4(int loc, ref Matrix4 value) => gl.ProgramUniformMatrix4(this.id, loc, false, ref value);
 }

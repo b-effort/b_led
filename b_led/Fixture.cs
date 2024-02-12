@@ -166,6 +166,7 @@ sealed class Fixture {
 
 		readonly Fixture fixture;
 		readonly RenderTexture2D rt;
+		Matrix4 projection;
 		int vao;
 		int vbo_leds;
 		int vbo_coords;
@@ -190,8 +191,14 @@ sealed class Fixture {
 		}
 
 		unsafe void InitShader() {
-			const BufferTarget target = BufferTarget.ArrayBuffer;
+			gl.Enable(EnableCap.ProgramPointSize);
 
+			this.projection = Matrix4.CreateScale(1 / this.fixture.Bounds.X, 1 / this.fixture.Bounds.Y, 1f)
+			                * Matrix4.CreateTranslation(-0.5f, -0.5f, 0f)
+			                * Matrix4.CreateScale(1.75f, 1.75f, 0f);
+			Shader.Projection(ref this.projection);
+
+			const BufferTarget target = BufferTarget.ArrayBuffer;
 			this.vao = gl.GenVertexArray();
 			gl.BindVertexArray(this.vao);
 			{
@@ -218,10 +225,6 @@ sealed class Fixture {
 				gl.BindBuffer(target, 0);
 			}
 			gl.BindVertexArray(0);
-
-			gl.Enable(EnableCap.ProgramPointSize);
-
-			this.UpdateBounds();
 		}
 
 		void UnloadVAO() {
@@ -242,10 +245,7 @@ sealed class Fixture {
 		public void UpdateCoordsBuffer() {
 			var coords = this.fixture.coords;
 			gl.NamedBufferSubData(this.vbo_coords, 0, coords.ByteSize(), coords);
-			this.UpdateBounds();
 		}
-
-		void UpdateBounds() => Shader.Bounds(this.fixture.Bounds);
 
 		public void UpdateTexture() {
 			var leds = this.fixture.leds;
@@ -374,7 +374,7 @@ sealed class DebugSocketEventListener : EventListener {
 		Console.WriteLine($"source {eventSource.Name}");
 		if (
 			eventSource.Name is "Private.InternalDiagnostics.System.Net.HttpListener"
-		                     or "Private.InternalDiagnostics.System.Net.Sockets"
+			                    or "Private.InternalDiagnostics.System.Net.Sockets"
 		) {
 			this.EnableEvents(eventSource, EventLevel.LogAlways);
 		}

@@ -6,6 +6,7 @@ global using Vector2 = System.Numerics.Vector2;
 global using tkVector2 = OpenTK.Mathematics.Vector2;
 global using tkVector3 = OpenTK.Mathematics.Vector3;
 global using tkVector4 = OpenTK.Mathematics.Vector4;
+global using Matrix4 = OpenTK.Mathematics.Matrix4;
 global using ImGuiNET;
 global using fftw = SharpFFTW.Single;
 global using gl = OpenTK.Graphics.OpenGL4.GL;

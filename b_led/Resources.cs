@@ -33,7 +33,6 @@ static class ImFonts {
 	static int px_to_pt(int px) => px * 96 / 72;
 }
 
-
 static class Shaders {
 	public static readonly Shader_FixturePreview FixturePreview = new();
 
@@ -46,7 +45,18 @@ sealed record Shader_FixturePreview() : Shader(
 	"fixture_preview.vert",
 	"fixture_preview.frag"
 ) {
+	const int Loc_Projection = 0;
+
+	public void Projection(ref Matrix4 value) => this.SetMat4(Loc_Projection, ref value);
+}
+
+sealed record Shader_WorldPreview() : Shader(
+	"world_preview.vert",
+	"world_preview.frag"
+) {
 	const int Loc_Bounds = 0;
+	const int Loc_Projection = 1;
 
 	public void Bounds(Vector2 value) => this.SetVec2f(Loc_Bounds, value);
+	public void Projection(ref Matrix4 value) => this.SetMat4(Loc_Projection, ref value);
 }

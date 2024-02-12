@@ -1,9 +1,10 @@
 #version 330
+#extension GL_ARB_explicit_uniform_location : enable
 
 layout(location=0) in vec4 color;
 layout(location=1) in vec2 coord;
 
-uniform vec2 bounds;
+layout(location=0) uniform mat4 projection;
 
 out vec4 ledColor;
 out vec2 ledCoord;
@@ -11,9 +12,6 @@ out vec2 ledCoord;
 void main() {
     ledColor = color;
 
-    ledCoord = coord / bounds;
-    ledCoord = (ledCoord - 0.5) * 1.75;
-
-    gl_Position = vec4(ledCoord.xy, 0, 1);
-//    gl_PointSize = 10;
+    ledCoord = coord;
+    gl_Position = projection * vec4(ledCoord.xy, 0, 1);
 }
