@@ -69,7 +69,8 @@ sealed class Fixture {
 	[DataMember] public string name;
 	[DataMember] Guid templateId;
 	[DataMember] public List<string> groups;
-	[DataMember] public string networkId;
+	// implicitly suffixed with .local
+	[DataMember] public string hostname;
 	[DataMember] public int numLeds;
 	// for fixtures with multiple sub-fixtures
 	[DataMember] public int startingLedOffset;
@@ -91,16 +92,13 @@ sealed class Fixture {
 	Vector2[] coords;
 	public Vector2 Bounds { get; private set; }
 
-	readonly Preview preview;
-	public Texture2D PreviewTexture => this.preview.Texture;
-
 	[JsonConstructor]
 	public Fixture(
 		Guid id,
 		string name,
 		Guid template_id,
 		List<string>? groups = null,
-		string network_id = "",
+		string hostname = "",
 		int num_leds = 0,
 		int starting_led_offset = 0,
 		Vector2 anchor_point = default,
@@ -110,7 +108,7 @@ sealed class Fixture {
 		this.name = name;
 		this.templateId = template_id;
 		this.groups = groups ?? new List<string>();
-		this.networkId = network_id;
+		this.hostname = hostname;
 		this.numLeds = num_leds;
 		this.startingLedOffset = starting_led_offset;
 		this.anchorPoint = anchor_point;
@@ -122,6 +120,8 @@ sealed class Fixture {
 		this.RebuildMap();
 
 		this.preview = new Preview(this);
+
+		this.sendBuffer = new byte[this.SendBufferSize];
 	}
 
 	public Fixture(string name = "") : this(
@@ -136,6 +136,7 @@ sealed class Fixture {
 	public void Resize() {
 		Array.Resize(ref this.leds, this.numLeds);
 		Array.Resize(ref this.coords, this.numLeds);
+		Array.Resize(ref this.sendBuffer, this.SendBufferSize);
 		this.RebuildMap();
 		this.preview.Resize(this.numLeds);
 	}
@@ -144,6 +145,53 @@ sealed class Fixture {
 		this.Template.PopulateMap(this.coords);
 		this.Bounds = GetBounds(this.coords);
 	}
+
+#region ws
+
+	readonly ClientWebSocket ws = new();
+	Task? wsTask;
+	CancellationTokenSource? wsCancelSource;
+	byte[] sendBuffer;
+	int SendBufferSize => this.numLeds * 3 + 1;
+
+	public void Connect() {
+		if (this.wsTask != null)
+			throw new OopsiePoopsie($"Fixture {this.name} already connected");
+
+		this.wsCancelSource = new CancellationTokenSource();
+		this.wsTask = Task.Run(() => this.RunWS(this.wsCancelSource.Token));
+	}
+
+	public void Disconnect() {
+		if (this.wsCancelSource is null)
+			throw new OopsiePoopsie($"Fixture {this.name} isn't connected");
+
+		this.wsCancelSource.Cancel();
+		this.wsCancelSource.Dispose();
+		this.wsCancelSource = null;
+	}
+
+	async Task RunWS(CancellationToken cancel) {
+		var uri = new Uri($"{this.hostname}.local:{Config.WS_Port}/{Config.WS_Path}/");
+		await this.ws.ConnectAsync(uri, CancellationToken.None);
+
+		while (this.ws.State == WebSocketState.Open && !cancel.IsCancellationRequested) {
+
+		}
+
+		if (this.ws.State == WebSocketState.Open) {
+			await this.ws.CloseOutputAsync(WebSocketCloseStatus.NormalClosure, null, CancellationToken.None);
+		}
+
+		Console.WriteLine($"Fixture {this.hostname} disconnected: {this.ws.State}, cancelled: {cancel.IsCancellationRequested}");
+	}
+
+#endregion
+
+#region preview
+
+	readonly Preview preview;
+	public Texture2D PreviewTexture => this.preview.Texture;
 
 	public void UpdatePreview() => this.preview.UpdateTexture();
 
@@ -264,8 +312,9 @@ sealed class Fixture {
 			}
 		}
 	}
-}
 
+#endregion
+}
 
 static class FixtureServer {
 	enum MessageType : byte {
@@ -284,7 +333,7 @@ static class FixtureServer {
 
 	static Task? acceptClientsTask;
 	static Task? sendTask;
-	static readonly AutoResetEvent sendFrameEvent = new(false);
+	public static readonly AutoResetEvent sendFrameEvent = new(false);
 
 	public static void Start() {
 		httpListener.Prefixes.Add(Address);
@@ -292,14 +341,6 @@ static class FixtureServer {
 
 		acceptClientsTask = Task.Run(LoopAcceptClients);
 		sendTask = Task.Run(LoopSend);
-	}
-
-	public static void Update(float deltaTime) {
-		frameTime += deltaTime;
-		if (frameTime >= FrameTimeTarget) {
-			frameTime -= FrameTimeTarget;
-			sendFrameEvent.Set();
-		}
 	}
 
 	static async Task LoopAcceptClients() {
@@ -334,38 +375,38 @@ static class FixtureServer {
 		}
 	}
 
-	const int SendBufferSize = Greg.BufferWidth * Greg.BufferWidth * 3 + 1;
-	static readonly byte[] sendBuffer = new byte[SendBufferSize];
+	// const int SendBufferSize = Greg.BufferWidth * Greg.BufferWidth * 3 + 1;
+	// static readonly byte[] sendBuffer = new byte[SendBufferSize];
 
 	static async Task LoopSend() {
-		while (httpListener.IsListening) {
-			sendFrameEvent.WaitOne();
-
-			// RGB[,] inputs = Greg.outputBuffer;
-			sendBuffer[0] = (byte)MessageType.SetLEDs;
-
-			for (var y = 0; y < Greg.BufferWidth; y++) {
-				for (var x = 0; x < Greg.BufferWidth; x++) {
-					// var color = inputs[y, x];
-					RGBA color = new RGBA(0, 0, 0);
-
-					var i = (y * Greg.BufferWidth + x) * 3 + 1;
-					sendBuffer[i + 0] = color.r;
-					sendBuffer[i + 1] = color.g;
-					sendBuffer[i + 2] = color.b;
-				}
-			}
-
-			foreach ((string fixtureId, WebSocket client) in clients) {
-				if (client.State == WebSocketState.Open) {
-					try {
-						await client.SendAsync(sendBuffer, WebSocketMessageType.Binary, true, CancellationToken.None);
-					} catch (Exception ex) {
-						Console.WriteLine(ex);
-					}
-				}
-			}
-		}
+		// while (httpListener.IsListening) {
+		// 	sendFrameEvent.WaitOne();
+		//
+		// 	// RGB[,] inputs = Greg.outputBuffer;
+		// 	sendBuffer[0] = (byte)MessageType.SetLEDs;
+		//
+		// 	for (var y = 0; y < Greg.BufferWidth; y++) {
+		// 		for (var x = 0; x < Greg.BufferWidth; x++) {
+		// 			// var color = inputs[y, x];
+		// 			RGBA color = new RGBA(0, 0, 0);
+		//
+		// 			var i = (y * Greg.BufferWidth + x) * 3 + 1;
+		// 			sendBuffer[i + 0] = color.r;
+		// 			sendBuffer[i + 1] = color.g;
+		// 			sendBuffer[i + 2] = color.b;
+		// 		}
+		// 	}
+		//
+		// 	foreach ((string fixtureId, WebSocket client) in clients) {
+		// 		if (client.State == WebSocketState.Open) {
+		// 			try {
+		// 				await client.SendAsync(sendBuffer, WebSocketMessageType.Binary, true, CancellationToken.None);
+		// 			} catch (Exception ex) {
+		// 				Console.WriteLine(ex);
+		// 			}
+		// 		}
+		// 	}
+		// }
 	}
 }
 

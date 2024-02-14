@@ -290,7 +290,7 @@ sealed class FixturesWindow {
 			EndCombo();
 		}
 
-		InputText("network id", ref fixture.networkId, Fixture.NetworkId_MaxLength);
+		InputText("network id", ref fixture.hostname, Fixture.NetworkId_MaxLength);
 		InputIntClamp("num leds", ref fixture.numLeds, min: 0, max: 1 << 16);
 		InputIntClamp("starting led offset", ref fixture.startingLedOffset, min: 0, max: 1 << 16);
 		InputFloat2("anchor point", ref fixture.anchorPoint);

@@ -1,3 +1,5 @@
+using System.Threading;
+
 namespace b_effort.b_led;
 
 // greg is secretary of state
@@ -85,9 +87,10 @@ static class Greg {
 
 #endregion
 
-	public const int BufferWidth = 64;
+	static float sendFrameTime = 0f;
+	public static readonly AutoResetEvent sendFrameEvent = new(false);
 
-	public static void Update() {
+	public static void Update(float deltaTime) {
 		var pattern = ActivePattern;
 		if (pattern == null)
 			return;
@@ -98,6 +101,12 @@ static class Greg {
 		var palette = ActivePalette;
 		foreach (var fixture in Fixtures) {
 			fixture.Render(pattern, palette);
+		}
+
+		sendFrameTime += deltaTime;
+		if (sendFrameTime >= Config.WS_FrameTimeTarget) {
+			sendFrameTime -= Config.WS_FrameTimeTarget;
+			sendFrameEvent.Set();
 		}
 	}
 }

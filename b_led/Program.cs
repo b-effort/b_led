@@ -14,6 +14,7 @@ global using static b_effort.b_led.Color;
 
 using System.Diagnostics;
 using System.Threading;
+using System.Threading.Tasks;
 using b_effort.b_led;
 using b_effort.b_led.graphics;
 using b_effort.b_led.interop;
@@ -70,6 +71,8 @@ if (OperatingSystem.IsWindows()) {
 	kernel32.SetThreadAffinityMask(kernel32.GetCurrentThread(), 1);
 }
 
+TaskScheduler.UnobservedTaskException += (_, eventArgs) => Console.WriteLine(eventArgs.Exception);
+
 using var window = new MainWindow(
 	width: 1280,
 	height: 1280,
@@ -81,6 +84,11 @@ static class Config {
 	public const string ResourcesPath = "resources";
 	public const string FontsPath = $"{ResourcesPath}/fonts";
 	public const string ShadersPath = $"{ResourcesPath}/shaders";
+
+	public const int WS_Port = 42000;
+	public const string WS_Path = "b_led";
+	public const int WS_FPS = 60;
+	public const float WS_FrameTimeTarget = 1f / WS_FPS;
 
 	public static readonly Vector2 FullPreviewResolution = vec2(800, 600);
 	public static readonly Vector2 PatternPreviewResolution = vec2(64);
@@ -235,9 +243,7 @@ sealed class MainWindow : NativeWindow {
 	void Update(float deltaTime) {
 		Push2.Update();
 		Metronome.Tickle(deltaTime);
-		Greg.Update();
-
-		FixtureServer.Update(deltaTime);
+		Greg.Update(deltaTime);
 	}
 
 	void RenderUI() {
