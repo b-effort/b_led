@@ -13,5 +13,5 @@ void main() {
     ledColor = color;
 
     ledCoord = coord;
-    gl_Position = projection * vec4(ledCoord.xy, 0, 1);
+    gl_Position = vec4(ledCoord, 0, 1) * projection;
 }

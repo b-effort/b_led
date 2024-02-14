@@ -41,22 +41,31 @@ static class Shaders {
 	}
 }
 
-sealed record Shader_FixturePreview() : Shader(
-	"fixture_preview.vert",
-	"fixture_preview.frag"
-) {
-	const int Loc_Projection = 0;
+sealed record Shader_FixturePreview : Shader {
+	readonly int loc_projection;
 
-	public void Projection(ref Matrix4 value) => this.SetMat4(Loc_Projection, ref value);
+	public Shader_FixturePreview() : base(
+		"fixture_preview.vert",
+		"fixture_preview.frag"
+	) {
+		this.loc_projection = this.Loc("projection");
+	}
+
+	public void Projection(ref Matrix4 value) => this.SetMat4(this.loc_projection, ref value);
 }
 
-sealed record Shader_WorldPreview() : Shader(
-	"world_preview.vert",
-	"world_preview.frag"
-) {
-	const int Loc_Bounds = 0;
-	const int Loc_Projection = 1;
+sealed record Shader_WorldPreview : Shader {
+	readonly int loc_bounds;
+	readonly int loc_projection;
 
-	public void Bounds(Vector2 value) => this.SetVec2f(Loc_Bounds, value);
-	public void Projection(ref Matrix4 value) => this.SetMat4(Loc_Projection, ref value);
+	public Shader_WorldPreview() : base(
+		"world_preview.vert",
+		"world_preview.frag"
+	) {
+		this.loc_bounds = this.Loc("bounds");
+		this.loc_projection = this.Loc("projection");
+	}
+
+	public void Bounds(Vector2 value) => this.SetVec2f(this.loc_bounds, value);
+	public void Projection(ref Matrix4 value) => this.SetMat4(this.loc_projection, ref value);
 }

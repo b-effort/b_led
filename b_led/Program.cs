@@ -31,15 +31,27 @@ using OpenTKUtils = OpenTK.Core.Utils;
 	- create/delete
 	- time division
 	- macro keyframes
+	- sequences in sequences
 - clip banks
 	- clip dragging
 	- rename
 	- switch banks
 	- map to push
+	- bank per song section
+	- way to automate clip selection
+		- set bpm range for clip
+	- filter groups
+		- filter per row
+- fixtures
+	- different mapping options
+		- per fixture
+		- per group
+		- all
 - metronome pause
 - ! led mapping
 - sound reactive
 	- fft
+- ableton link
 - ui
 	- remember selected tabs
 	- window opening/closing
