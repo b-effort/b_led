@@ -56,6 +56,9 @@ static class Greg {
 	public static void LoadProject() {
 		project = Project.Load(ProjectFile);
 		ActiveClipBank = ClipBanks[0];
+
+		UpdateWorldRect();
+		UpdateFixtureSockets();
 	}
 
 #endregion
@@ -66,9 +69,37 @@ static class Greg {
 
 	public static FixtureTemplate[] FixtureTemplates => FixtureTemplate.All;
 	public static List<Fixture> Fixtures => project.Fixtures;
+	public static List<FixtureSocket> FixtureSockets { get; } = new();
 	public static Rect WorldRect { get; private set; }
 
 	public static void AddFixture(Fixture fixture) => Fixtures.Add(fixture);
+
+	public static void UpdateFixtureSockets() {
+		string[] hostnames = Fixtures.Select(f => f.hostname).Distinct().ToArray();
+
+		// add new
+		foreach (var hostname in hostnames) {
+			if (!FixtureSockets.Exists(sock => sock.hostname == hostname)) {
+				var socket = new FixtureSocket(hostname);
+				socket.Connect();
+				FixtureSockets.Add(socket);
+			}
+		}
+
+		// remove old
+		foreach (var socket in FixtureSockets.ToArray()) {
+			if (!hostnames.Contains(socket.hostname)) {
+				socket.Disconnect();
+				FixtureSockets.Remove(socket);
+			}
+		}
+
+		// assign fixtures
+		foreach (var socket in FixtureSockets) {
+			var fixtures = Fixtures.Where(f => f.hostname == socket.hostname).ToArray();
+			socket.AssignFixtures(fixtures);
+		}
+	}
 
 	public static void UpdateWorldRect() {
 		Rect worldRect = new(pos: Vector2.Zero, size: Vector2.Zero);
@@ -87,8 +118,7 @@ static class Greg {
 
 #endregion
 
-	static float sendFrameTime = 0f;
-	public static readonly AutoResetEvent sendFrameEvent = new(false);
+	static float send_frameTime = 0f;
 
 	public static void Update(float deltaTime) {
 		var pattern = ActivePattern;
@@ -103,10 +133,12 @@ static class Greg {
 			fixture.Render(pattern, palette);
 		}
 
-		sendFrameTime += deltaTime;
-		if (sendFrameTime >= Config.WS_FrameTimeTarget) {
-			sendFrameTime -= Config.WS_FrameTimeTarget;
-			sendFrameEvent.Set();
+		send_frameTime += deltaTime;
+		if (send_frameTime >= Config.WS_FrameTimeTarget) {
+			send_frameTime -= Config.WS_FrameTimeTarget;
+			foreach (var socket in FixtureSockets) {
+				socket.SignalSend();
+			}
 		}
 	}
 }

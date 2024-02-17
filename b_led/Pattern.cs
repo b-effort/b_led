@@ -191,7 +191,7 @@ sealed class Sequence : ClipContents {
 				return null;
 			float interval = Metronome.SyncedInterval(this.slots.Count);
 			var i = (int)(interval * this.slots.Count);
-			while (i >= 0 && !this.slots[i].HasPattern) {
+			while (i > 0 && !this.slots[i].HasPattern) {
 				i--;
 			}
 			return this.slots[i];

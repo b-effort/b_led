@@ -87,6 +87,7 @@ static class Config {
 
 	public const int WS_Port = 42000;
 	public const string WS_Path = "b_led";
+	public const int WS_Reconnect_ms = 5_000;
 	public const int WS_FPS = 60;
 	public const float WS_FrameTimeTarget = 1f / WS_FPS;
 

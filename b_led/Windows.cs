@@ -243,18 +243,49 @@ sealed class FixturesWindow {
 				if (Button($"{FontAwesome6.Plus} new")) {
 					this.newFixture = new Fixture();
 				}
+				if (Button($"{FontAwesome6.ArrowsSpin} update")) {
+					foreach (var fixture in fixtures) {
+						if (fixture.Leds.Length != fixture.numLeds) {
+							fixture.Resize();
+						}
+					}
+					Greg.UpdateWorldRect();
+					Greg.UpdateFixtureSockets();
+				}
 
-				// PushStyleColor(ImGuiCol.FrameBg, Vector4.Zero);
-				if (BeginListBox("##list", ContentAvail())) {
-					foreach (Fixture fixture in fixtures) {
+				if (BeginTable("fixtures_table", 5, ImGuiTableFlags.Borders, ContentAvail())) {
+					TableSetupColumn("name", ImGuiTableColumnFlags.None, 1f);
+					TableSetupColumn("host", ImGuiTableColumnFlags.None, 1f);
+					TableSetupColumn("num leds", ImGuiTableColumnFlags.None, 1f);
+					TableSetupColumn("offset", ImGuiTableColumnFlags.None, 1f);
+					TableSetupColumn("status", ImGuiTableColumnFlags.None, 1f);
+					TableHeadersRow();
+
+					for (var row = 0; row < fixtures.Count; row++) {
+						var fixture = fixtures[row];
+						TableNextRow();
+
+						TableNextColumn();
 						bool isSelected = fixture == this.selectedFixture;
-						if (Selectable(fixture.name, isSelected))
+						if (Selectable(fixture.name, isSelected, ImGuiSelectableFlags.SpanAllColumns))
 							this.selectedFixture = fixture;
+
+						TableNextColumn();
+						Text(fixture.hostname);
+
+						TableNextColumn();
+						Text(fixture.numLeds.ToString());
+
+						TableNextColumn();
+						Text(fixture.startingLedOffset.ToString());
+
+						TableNextColumn();
+						var state = fixture.Socket()?.State ?? FixtureSocket.ConnectionState.Disconnected;
+						Text(Enum.GetName(state));
 					}
 
-					EndListBox();
+					EndTable();
 				}
-				// PopStyleColor(1);
 			}
 			EndChild();
 
@@ -301,9 +332,6 @@ sealed class FixturesWindow {
 
 		SpacingY(em(0.5f));
 		if (Button($"{FontAwesome6.FloppyDisk} save")) {
-			fixture.Resize();
-			// !todo: move this somewhere better
-			Greg.UpdateWorldRect();
 			if (isNew)
 				Greg.AddFixture(fixture);
 			// fixture = null;

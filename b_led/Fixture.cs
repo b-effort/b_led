@@ -89,6 +89,7 @@ sealed class Fixture {
 	}
 
 	RGBA[] leds;
+	public RGBA[] Leds => this.leds;
 	Vector2[] coords;
 	public Vector2 Bounds { get; private set; }
 
@@ -120,8 +121,6 @@ sealed class Fixture {
 		this.RebuildMap();
 
 		this.preview = new Preview(this);
-
-		this.sendBuffer = new byte[this.SendBufferSize];
 	}
 
 	public Fixture(string name = "") : this(
@@ -130,63 +129,22 @@ sealed class Fixture {
 		template_id: FixtureTemplate.Default.Id
 	) { }
 
+	public FixtureSocket? Socket() => Greg.FixtureSockets.Find(sock => sock.hostname == this.hostname);
+
 	public void Render(Pattern pattern, Palette? palette) =>
 		pattern.RenderTo(this.leds, this.coords, this.Bounds, palette);
 
 	public void Resize() {
 		Array.Resize(ref this.leds, this.numLeds);
 		Array.Resize(ref this.coords, this.numLeds);
-		Array.Resize(ref this.sendBuffer, this.SendBufferSize);
 		this.RebuildMap();
-		this.preview.Resize(this.numLeds);
+	 	this.preview.Resize(this.numLeds);
 	}
 
 	void RebuildMap() {
 		this.Template.PopulateMap(this.coords);
 		this.Bounds = GetBounds(this.coords);
 	}
-
-#region ws
-
-	readonly ClientWebSocket ws = new();
-	Task? wsTask;
-	CancellationTokenSource? wsCancelSource;
-	byte[] sendBuffer;
-	int SendBufferSize => this.numLeds * 3 + 1;
-
-	public void Connect() {
-		if (this.wsTask != null)
-			throw new OopsiePoopsie($"Fixture {this.name} already connected");
-
-		this.wsCancelSource = new CancellationTokenSource();
-		this.wsTask = Task.Run(() => this.RunWS(this.wsCancelSource.Token));
-	}
-
-	public void Disconnect() {
-		if (this.wsCancelSource is null)
-			throw new OopsiePoopsie($"Fixture {this.name} isn't connected");
-
-		this.wsCancelSource.Cancel();
-		this.wsCancelSource.Dispose();
-		this.wsCancelSource = null;
-	}
-
-	async Task RunWS(CancellationToken cancel) {
-		var uri = new Uri($"{this.hostname}.local:{Config.WS_Port}/{Config.WS_Path}/");
-		await this.ws.ConnectAsync(uri, CancellationToken.None);
-
-		while (this.ws.State == WebSocketState.Open && !cancel.IsCancellationRequested) {
-
-		}
-
-		if (this.ws.State == WebSocketState.Open) {
-			await this.ws.CloseOutputAsync(WebSocketCloseStatus.NormalClosure, null, CancellationToken.None);
-		}
-
-		Console.WriteLine($"Fixture {this.hostname} disconnected: {this.ws.State}, cancelled: {cancel.IsCancellationRequested}");
-	}
-
-#endregion
 
 #region preview
 
@@ -316,97 +274,133 @@ sealed class Fixture {
 #endregion
 }
 
-static class FixtureServer {
+sealed class FixtureSocket {
 	enum MessageType : byte {
-		GetId = 0,
-		GetId_Reply = 1,
-		SetLEDs = 2,
+		SetLEDs = 0,
 	}
 
-	const string Address = "http://+:42000/b_led/";
-	static readonly HttpListener httpListener = new();
-	static readonly Dictionary<string, WebSocket> clients = new();
-
-	const int FPS = 60;
-	const float FrameTimeTarget = 1f / FPS;
-	static float frameTime = 0f;
-
-	static Task? acceptClientsTask;
-	static Task? sendTask;
-	public static readonly AutoResetEvent sendFrameEvent = new(false);
-
-	public static void Start() {
-		httpListener.Prefixes.Add(Address);
-		httpListener.Start();
-
-		acceptClientsTask = Task.Run(LoopAcceptClients);
-		sendTask = Task.Run(LoopSend);
+	public enum ConnectionState
+	{
+		Disconnected,
+		Connected,
+		Connecting,
+		Reconnecting,
 	}
 
-	static async Task LoopAcceptClients() {
-		while (httpListener.IsListening) {
-			var ctx = await httpListener.GetContextAsync();
+	public readonly string hostname;
+	readonly Uri uri;
+	ClientWebSocket? ws;
+	Timer? reconnect;
+	public ConnectionState State { get; private set; } = ConnectionState.Disconnected;
+	Fixture[] fixtures = Array.Empty<Fixture>();
 
-			if (!ctx.Request.IsWebSocketRequest) {
-				ctx.Response.StatusCode = 400;
-				ctx.Response.Close();
-				continue;
-			}
+	Task? send_task;
+	CancellationTokenSource? send_cts;
+	byte[] send_buf = Array.Empty<byte>();
+	readonly AutoResetEvent send_event = new(false);
 
-			try {
-				var wsCtx = await ctx.AcceptWebSocketAsync(subProtocol: null);
-				var client = wsCtx.WebSocket;
-				Console.WriteLine($"Client connected: {ctx.Request.RemoteEndPoint.Serialize()}");
+	public bool pause = false;
 
-				await client.SendAsync(new[] { (byte)MessageType.GetId }, WebSocketMessageType.Binary, true, CancellationToken.None);
+	public FixtureSocket(string hostname) {
+		this.hostname = hostname;
+		this.uri = new Uri($"ws://{hostname}.local:{Config.WS_Port}/{Config.WS_Path}/");
+	}
 
-				byte[] idBuffer = ArrayPool<byte>.Shared.Rent(Fixture.NetworkId_MaxLength * 2 + 1);
-				var idResponse = await client.ReceiveAsync(idBuffer, CancellationToken.None);
-				string id = Encoding.UTF8.GetString(idBuffer, 1, idResponse.Count - 1);
-				Console.WriteLine($"Fixture ID: {id}");
+	public void AssignFixtures(Fixture[] newFixtures) {
+		this.fixtures = newFixtures;
+		int bufSize = this.fixtures.Sum(f => f.numLeds) * 3 + 1;
+		Array.Resize(ref this.send_buf, bufSize);
+	}
 
-				clients[id] = client;
+	public void Connect() {
+		if (this.State == ConnectionState.Connecting || this.State == ConnectionState.Connected)
+			throw new OopsiePoopsie($"Fixture {this.hostname} already connected");
 
-			} catch (Exception ex) {
-				Console.WriteLine($"ERROR: Failed to accept client {ex}");
-				ctx.Response.StatusCode = 500;
-				ctx.Response.Close();
-			}
+		this.send_cts = new CancellationTokenSource();
+		this.send_task = Task.Run(() => this.LoopSend(this.send_cts.Token));
+
+		this.reconnect = new Timer(
+			_ => {
+				if (this.State == ConnectionState.Disconnected) {
+					this.State = ConnectionState.Reconnecting;
+					this.Connect();
+				}
+			}, null, Config.WS_Reconnect_ms, Config.WS_Reconnect_ms);
+	}
+
+	public async void Disconnect() {
+		if (this.State != ConnectionState.Connecting && this.State != ConnectionState.Connected)
+			throw new OopsiePoopsie($"Fixture {this.hostname} isn't connected");
+
+		this.send_cts!.Cancel();
+		this.send_cts.Dispose();
+		this.send_cts = null;
+
+		await this.reconnect!.DisposeAsync();
+		this.reconnect = null;
+
+		await this.send_task!;
+	}
+
+	public void SignalSend() {
+		this.send_event.Set();
+	}
+
+	async Task LoopSend(CancellationToken cancel) {
+		// todo: make ws local
+		this.ws = new ClientWebSocket();
+		if (this.State != ConnectionState.Reconnecting) {
+			this.State = ConnectionState.Connecting;
 		}
-	}
 
-	// const int SendBufferSize = Greg.BufferWidth * Greg.BufferWidth * 3 + 1;
-	// static readonly byte[] sendBuffer = new byte[SendBufferSize];
+		try {
+			await this.ws.ConnectAsync(this.uri, CancellationToken.None);
+			Console.WriteLine($"Fixture {this.hostname} connected");
 
-	static async Task LoopSend() {
-		// while (httpListener.IsListening) {
-		// 	sendFrameEvent.WaitOne();
-		//
-		// 	// RGB[,] inputs = Greg.outputBuffer;
-		// 	sendBuffer[0] = (byte)MessageType.SetLEDs;
-		//
-		// 	for (var y = 0; y < Greg.BufferWidth; y++) {
-		// 		for (var x = 0; x < Greg.BufferWidth; x++) {
-		// 			// var color = inputs[y, x];
-		// 			RGBA color = new RGBA(0, 0, 0);
-		//
-		// 			var i = (y * Greg.BufferWidth + x) * 3 + 1;
-		// 			sendBuffer[i + 0] = color.r;
-		// 			sendBuffer[i + 1] = color.g;
-		// 			sendBuffer[i + 2] = color.b;
-		// 		}
-		// 	}
-		//
-		// 	foreach ((string fixtureId, WebSocket client) in clients) {
-		// 		if (client.State == WebSocketState.Open) {
-		// 			try {
-		// 				await client.SendAsync(sendBuffer, WebSocketMessageType.Binary, true, CancellationToken.None);
-		// 			} catch (Exception ex) {
-		// 				Console.WriteLine(ex);
-		// 			}
-		// 		}
-		// 	}
-		// }
+			WaitHandle[] waitHandles = { this.send_event, cancel.WaitHandle };
+			while (this.ws.State == WebSocketState.Open) {
+				WaitHandle.WaitAny(waitHandles);
+				if (cancel.IsCancellationRequested) {
+					break;
+				}
+				if (this.pause) {
+					continue;
+				}
+
+				var buf = this.send_buf;
+				buf[0] = (byte)MessageType.SetLEDs;
+				foreach (var fixture in this.fixtures) {
+					var offset = fixture.startingLedOffset;
+					var leds = fixture.Leds;
+
+					for (var iLed = 0; iLed < leds.Length; iLed++) {
+						RGBA led = leds[iLed];
+						int i = 1 + offset + iLed;
+						buf[i + 0] = led.r;
+						buf[i + 1] = led.g;
+						buf[i + 2] = led.b;
+					}
+				}
+
+				try {
+					await this.ws.SendAsync(buf, WebSocketMessageType.Binary, true, CancellationToken.None);
+				} catch (Exception ex) {
+					Console.WriteLine(ex);
+					throw;
+				}
+			}
+
+			if (this.ws.State == WebSocketState.Open) {
+				await this.ws.CloseOutputAsync(WebSocketCloseStatus.NormalClosure, null, CancellationToken.None);
+			}
+
+			Console.WriteLine($"Fixture {this.hostname} disconnected: {this.ws.State}, cancelled: {cancel.IsCancellationRequested}");
+		} catch {
+			// ignored
+		}
+
+		this.State = ConnectionState.Disconnected;
+		this.ws.Dispose();
 	}
 }
 
