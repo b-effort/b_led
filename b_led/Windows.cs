@@ -243,6 +243,7 @@ sealed class FixturesWindow {
 				if (Button($"{FontAwesome6.Plus} new")) {
 					this.newFixture = new Fixture();
 				}
+				SameLine();
 				if (Button($"{FontAwesome6.ArrowsSpin} update")) {
 					foreach (var fixture in fixtures) {
 						if (fixture.Leds.Length != fixture.numLeds) {
@@ -331,14 +332,14 @@ sealed class FixturesWindow {
 		var _fixture = fixture;
 
 		SpacingY(em(0.5f));
-		if (Button($"{FontAwesome6.FloppyDisk} save")) {
-			if (isNew)
+		if (isNew) {
+			if (Button($"{FontAwesome6.FloppyDisk} save")) {
 				Greg.AddFixture(fixture);
-			// fixture = null;
-		}
-		SameLine();
-		if (Button($"{FontAwesome6.TrashCan} discard")) {
-			fixture = null;
+			}
+			SameLine();
+			if (Button($"{FontAwesome6.TrashCan} discard")) {
+				fixture = null;
+			}
 		}
 
 		_fixture.UpdatePreview();

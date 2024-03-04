@@ -10,7 +10,7 @@ static class ImFonts {
 	public static ImFontPtr Mono_15 { get; private set; }
 	public static ImFontPtr Mono_17 { get; private set; }
 
-	public static unsafe void LoadFonts(ImGuiIOPtr io) {
+	public static unsafe void LoadFonts(ImGuiIOPtr io, float scale) {
 		var config = new ImFontConfig {
 			OversampleH = 3,
 			OversampleV = 3,
@@ -20,17 +20,17 @@ static class ImFonts {
 			FontDataOwnedByAtlas = 1,
 		};
 
-		Mono_17 = io.LoadTTF(JetBrainsMono_Regular_TTF, 17, &config);
-		FontAwesome6.Load(io, px_to_pt(13));
-		Mono_15 = io.LoadTTF(JetBrainsMono_Regular_TTF, 15, &config);
+		Mono_17 = io.LoadTTF(JetBrainsMono_Regular_TTF, px_to_pt(17, scale), &config);
+		FontAwesome6.Load(io, px_to_pt(13, scale));
+		Mono_15 = io.LoadTTF(JetBrainsMono_Regular_TTF, px_to_pt(15, scale), &config);
 
 		Default = Mono_17;
 	}
 
-	static ImFontPtr LoadTTF(this ImGuiIOPtr io, string file, int px, ImFontConfigPtr config)
-		=> io.Fonts.AddFontFromFileTTF(file, px_to_pt(px), config);
+	static int px_to_pt(int px, float scale = 1f) => (int)MathF.Round(px * scale * 96 / 72);
 
-	static int px_to_pt(int px) => px * 96 / 72;
+	static ImFontPtr LoadTTF(this ImGuiIOPtr io, string file, float pt, ImFontConfigPtr config)
+		=> io.Fonts.AddFontFromFileTTF(file, pt, config);
 }
 
 static class Shaders {

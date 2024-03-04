@@ -76,7 +76,9 @@ TaskScheduler.UnobservedTaskException += (_, eventArgs) => Console.WriteLine(eve
 using var window = new MainWindow(
 	width: 1280,
 	height: 1280,
-	fps: 144
+	fps: 60,
+	scale_fonts: 1.25f,
+	scale_ui: 1f
 );
 window.Run();
 
@@ -115,7 +117,7 @@ sealed class MainWindow : NativeWindow {
 	readonly PushWindow win_push;
 	readonly FuncPlotterWindow win_funcPlotter;
 
-	public unsafe MainWindow(int width, int height, int fps) : base(
+	public unsafe MainWindow(int width, int height, int fps, float scale_fonts, float scale_ui = 1f) : base(
 		new NativeWindowSettings {
 			Title = "b_led",
 			ClientSize = (width, height),
@@ -130,7 +132,7 @@ sealed class MainWindow : NativeWindow {
 
 			var io = ImGui.GetIO();
 			io.ConfigFlags |= ImGuiConfigFlags.DockingEnable;
-			ImFonts.LoadFonts(io);
+			ImFonts.LoadFonts(io, scale_fonts);
 
 			ImGui_Glfw.InitForOpenGL(this.WindowPtr, true);
 			ImGui_OpenGL3.Init();
@@ -140,7 +142,7 @@ sealed class MainWindow : NativeWindow {
 			ImGui.StyleColorsDark();
 			var style = ImGui.GetStyle();
 			style.ItemInnerSpacing = vec2(8, 4);
-			// style.ScaleAllSizes(1.30f);
+			style.ScaleAllSizes(scale_ui);
 
 			ImGui.SetColorEditOptions(
 				ImGuiColorEditFlags.NoAlpha
