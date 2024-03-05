@@ -123,6 +123,7 @@ sealed class MainWindow : NativeWindow {
 			ClientSize = (width, height),
 			Vsync = VSyncMode.Off,
 			APIVersion = new(4, 6),
+			WindowState = WindowState.Maximized,
 		}
 	) {
 		this.fps = fps;
@@ -142,6 +143,7 @@ sealed class MainWindow : NativeWindow {
 			ImGui.StyleColorsDark();
 			var style = ImGui.GetStyle();
 			style.ItemInnerSpacing = vec2(8, 4);
+			style.Colors[(int)ImGuiCol.TitleBgActive] = style.Colors[(int)ImGuiCol.TitleBg];
 			style.ScaleAllSizes(scale_ui);
 
 			ImGui.SetColorEditOptions(
@@ -250,7 +252,7 @@ sealed class MainWindow : NativeWindow {
 	}
 
 	void RenderUI() {
-		ImGui.DockSpaceOverViewport();
+		// ImGui.DockSpaceOverViewport();
 
 		if (ImGui.BeginMainMenuBar()) {
 			if (ImGui.BeginMenu("File")) {
@@ -263,19 +265,64 @@ sealed class MainWindow : NativeWindow {
 				if (ImGui.MenuItem("Load demo project")) {
 					Greg.LoadDemoProject();
 				}
+				ImGui.EndMenu();
 			}
+			ImGui.EndMainMenuBar();
 		}
 
-		this.win_preview.Show();
-		this.win_palettes.Show();
-		this.win_clips.Show();
-		this.win_sequences.Show();
-		this.win_patterns.Show();
-		this.win_fixtures.Show();
-		this.win_audio.Show();
-		this.win_metronome.Show();
-		this.win_macros.Show();
-		// this.funcPlotterWindow.Show();
-		this.win_push.Show();
+		ImGui.SetNextWindowPos(vec2(0, ImGui.GetFrameHeight()), ImGuiCond.Always);
+		ImGui.SetNextWindowSize(ImGui.GetWindowViewport().WorkSize, ImGuiCond.Always);
+		var mainWindowFlags = ImGuiWindowFlags.NoTitleBar
+		                    | ImGuiWindowFlags.NoResize
+		                    | ImGuiWindowFlags.NoMove
+		                    | ImGuiWindowFlags.NoBringToFrontOnFocus
+		                    | ImGuiWindowFlags.NoDocking;
+		ImGui.Begin("main", mainWindowFlags);
+
+		uint dock_edit = ImGui.GetID("dock_edit");
+		uint dock_perform = ImGui.GetID("dock_perform");
+		uint dock_preview = ImGui.GetID("dock_preview");
+
+		if (ImGui.BeginTabBar("main_tabs")) {
+			string tab = "edit";
+			if (ImGui.BeginTabItem(tab)) {
+				ImGui.DockSpace(dock_edit);
+				this.win_palettes.Show(tab);
+				this.win_clips.Show(tab);
+				this.win_sequences.Show(tab);
+				this.win_patterns.Show(tab);
+				this.win_macros.Show(tab);
+				this.win_fixtures.Show(tab);
+
+				this.win_audio.Show(tab);
+				this.win_metronome.Show(tab);
+				this.win_push.Show(tab);
+				ImGui.EndTabItem();
+			} else {
+				ImGui.DockSpace(dock_edit, Vector2.Zero, ImGuiDockNodeFlags.KeepAliveOnly);
+			}
+			tab = "perform";
+			if (ImGui.BeginTabItem(tab)) {
+				ImGui.DockSpace(dock_perform);
+				this.win_clips.Show(tab);
+				this.win_preview.Show(tab);
+				this.win_macros.Show(tab);
+				ImGui.EndTabItem();
+			} else {
+				ImGui.DockSpace(dock_perform, Vector2.Zero, ImGuiDockNodeFlags.KeepAliveOnly);
+			}
+			tab = "preview";
+			if (ImGui.BeginTabItem(tab)) {
+				ImGui.DockSpace(dock_preview);
+				this.win_macros.Show(tab);
+				this.win_preview.Show(tab);
+				ImGui.EndTabItem();
+			} else {
+				ImGui.DockSpace(dock_preview, Vector2.Zero, ImGuiDockNodeFlags.KeepAliveOnly);
+			}
+			ImGui.EndTabBar();
+		}
+
+		ImGui.End();
 	}
 }

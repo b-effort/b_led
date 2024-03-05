@@ -1,5 +1,7 @@
 global using static b_effort.b_led.MethodImplShorthand;
 global using static b_effort.b_led.VectorShorthand;
+global using TableFlags = ImGuiNET.ImGuiTableFlags;
+global using TableColFlags = ImGuiNET.ImGuiTableColumnFlags;
 global using ImplAttribute = System.Runtime.CompilerServices.MethodImplAttribute;
 using System.Runtime.CompilerServices;
 using b_effort.b_led.graphics;

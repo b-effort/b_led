@@ -31,7 +31,7 @@ static class DragDrop {
 		return false;
 	}
 
-	public static void SourcePalette(Palette palette) {
+	public static void Source_Palette(Palette palette) {
 		if (BeginSource(palette)) {
 			Text(palette.name);
 			Image(palette.preview.TextureId, em(12, 1));
@@ -39,7 +39,7 @@ static class DragDrop {
 		}
 	}
 
-	public static void SourcePattern(Pattern pattern) {
+	public static void Source_Pattern(Pattern pattern) {
 		if (BeginSource(pattern)) {
 			Text(pattern.name);
 			Image(pattern.TextureId, em(4, 4));
@@ -47,7 +47,7 @@ static class DragDrop {
 		}
 	}
 
-	public static void SourceSequence(Sequence sequence) {
+	public static void Source_Sequence(Sequence sequence) {
 		if (BeginSource(sequence)) {
 			Text(sequence.name);
 			EndDragDropSource();
@@ -274,7 +274,7 @@ static class Widgets {
 			}
 
 			if (draggable)
-				DragDrop.SourcePattern(pattern);
+				DragDrop.Source_Pattern(pattern);
 		}
 
 		return changed;
@@ -284,18 +284,15 @@ static class Widgets {
 
 #region gradient
 
-	public sealed class GradientEditState {
-		public GradientPreview GradientPreview { get; set; } = null!;
-		Gradient Gradient => this.GradientPreview.gradient;
-		public nint TextureId => this.GradientPreview.TextureId;
+	public sealed class PaletteEdit {
+		Gradient gradient = null!;
 
-		public int SelectedIndex { get; private set; } = -1;
-		public Gradient.Point SelectedPoint => this.Gradient.Points[this.SelectedIndex];
-		public HSB RevertColor { get; private set; } = new();
-		public bool IsDragging { get; set; } = false;
+		int selectedIndex = -1;
+		HSB revertColor = new();
+		bool isDragging = false;
 
-		public void Select(int i) {
-			var points = this.Gradient.Points;
+		void Select(int i) {
+			var points = this.gradient.Points;
 			int len = points.Count;
 
 			if (i < 0)
@@ -303,208 +300,206 @@ static class Widgets {
 			else if (i >= len)
 				i %= len;
 
-			this.SelectedIndex = i;
-			this.RevertColor = points[i].color;
+			this.selectedIndex = i;
+			this.revertColor = points[i].color;
 		}
 
-		public void UpdatePreview() => this.GradientPreview.UpdateTexture();
-	}
-
-	public static bool GradientEdit(string id, GradientPreview gradientPreview, GradientEditState state) {
-		state.GradientPreview = gradientPreview;
-		var gradient = gradientPreview.gradient;
-		if (state.SelectedIndex < 0) {
-			state.Select(0);
-		} else if (state.SelectedIndex > gradient.Points.Count - 1) {
-			state.Select(gradient.Points.Count - 1);
-		}
-
-		int barHeight = emEven(1);
-		float marginX = emEven(0.2f);
-		float markerWidth = emOdd(0.6f);
-		float markerHeight = emEven(1f);
-		Vector2 markerSize = vec2(markerWidth, markerHeight);
-
-		bool changed = false;
-
-		var io = GetIO();
-		var drawList = GetWindowDrawList();
-
-		PushID(id);
-		BeginGroup();
-		{
-			float width = GetContentRegionAvail().X - marginX * 2;
-			Vector2 origin = GetCursorScreenPos() + vec2(marginX, 0);
-
-			{ // # color bar
-				Vector2 barSize = vec2(width, barHeight);
-
-				SetCursorScreenPos(origin);
-				Image(state.TextureId, barSize);
+		public bool Draw(string id, Palette palette) {
+			var gradient = this.gradient = palette.gradient;
+			var preview = palette.preview;
+			if (this.selectedIndex < 0) {
+				this.Select(0);
+			} else if (this.selectedIndex > gradient.Points.Count - 1) {
+				this.Select(gradient.Points.Count - 1);
 			}
 
+			int barHeight = emEven(1);
+			float marginX = emEven(0.2f);
+			float markerWidth = emOdd(0.6f);
+			float markerHeight = emEven(1f);
+			Vector2 markerSize = vec2(markerWidth, markerHeight);
 
-			bool isAnyMarkerHovered = false;
-			{ // # markers
-				origin.Y = GetCursorScreenPos().Y;
-				bool mouseLeftDown = IsMouseDown(ImGuiMouseButton.Left);
-				bool mouseRightClicked = IsMouseClicked(ImGuiMouseButton.Right);
-				bool mouseDragging = IsMouseDragging(ImGuiMouseButton.Left);
+			bool changed = false;
 
-				var points = gradient.Points;
-				for (var i = 0; i < points.Count; i++) {
-					var point = points[i];
-					float x = point.pos * width;
-					bool isSelected = i == state.SelectedIndex;
+			var io = GetIO();
+			var drawList = GetWindowDrawList();
 
-					DrawMarker(origin, x, point.color, isSelected);
+			PushID(id);
+			BeginGroup();
+			{
+				float width = GetContentRegionAvail().X - marginX * 2;
+				Vector2 origin = GetCursorScreenPos() + vec2(marginX, 0);
 
-					SetCursorScreenPos(origin + vec2(x - markerWidth / 2, 0));
-					InvisibleButton($"##marker_{i}", markerSize);
+				{ // # color bar
+					Vector2 barSize = vec2(width, barHeight);
 
-					bool isHovered = IsItemHovered();
-					isAnyMarkerHovered |= isHovered;
+					SetCursorScreenPos(origin);
+					Image(preview.TextureId, barSize);
+				}
 
-					if (!state.IsDragging && isHovered && mouseLeftDown) {
-						state.Select(i);
-						state.IsDragging = true;
-					}
-					if (!mouseLeftDown) {
-						state.IsDragging = false;
-					}
-					if (isHovered && mouseRightClicked && !mouseLeftDown) {
-						gradient.RemoveAt(i);
-						if (i < state.SelectedIndex) {
-							state.Select(state.SelectedIndex - 1);
+
+				bool isAnyMarkerHovered = false;
+				{ // # markers
+					origin.Y = GetCursorScreenPos().Y;
+					bool mouseLeftDown = IsMouseDown(ImGuiMouseButton.Left);
+					bool mouseRightClicked = IsMouseClicked(ImGuiMouseButton.Right);
+					bool mouseDragging = IsMouseDragging(ImGuiMouseButton.Left);
+
+					var points = gradient.Points;
+					for (var i = 0; i < points.Count; i++) {
+						var point = points[i];
+						float x = point.pos * width;
+						bool isSelected = i == this.selectedIndex;
+
+						DrawMarker(origin, x, point.color, isSelected);
+
+						SetCursorScreenPos(origin + vec2(x - markerWidth / 2, 0));
+						InvisibleButton($"##marker_{i}", markerSize);
+
+						bool isHovered = IsItemHovered();
+						isAnyMarkerHovered |= isHovered;
+
+						if (!this.isDragging && isHovered && mouseLeftDown) {
+							this.Select(i);
+							this.isDragging = true;
+						}
+						if (!mouseLeftDown) {
+							this.isDragging = false;
+						}
+						if (isHovered && mouseRightClicked && !mouseLeftDown) {
+							gradient.RemoveAt(i);
+							if (i < this.selectedIndex) {
+								this.Select(this.selectedIndex - 1);
+							}
+						}
+
+						if (
+							i == this.selectedIndex
+						 && i != 0 && i < points.Count - 1 // no dragging endpoints
+						 && this.isDragging && mouseDragging
+						) {
+							float deltaPos = io.MouseDelta.X / width;
+							point.pos = BMath.clamp(point.pos + deltaPos);
+							changed |= deltaPos != 0;
 						}
 					}
 
-					if (
-						i == state.SelectedIndex
-					 && i != 0 && i < points.Count - 1 // no dragging endpoints
-					 && state.IsDragging && mouseDragging
-					) {
-						float deltaPos = io.MouseDelta.X / width;
-						point.pos = BMath.clamp(point.pos + deltaPos);
-						changed |= deltaPos != 0;
+					if (changed) {
+						gradient.Sort();
 					}
 				}
 
-				if (changed) {
-					gradient.Sort();
+				{ // # markers area
+					SetCursorScreenPos(origin);
+					InvisibleButton("markers_area", vec2(width, markerHeight));
+
+					if (!isAnyMarkerHovered && IsItemHovered()) {
+						float x = io.MousePos.X - origin.X;
+						float gradientPos = x / width;
+						HSB color = gradient.ColorAt(gradientPos);
+						DrawMarker(origin, x, color, isSelected: false, showOutline: false);
+
+						if (IsMouseClicked(0)) {
+							int i = gradient.Add(gradientPos, color);
+							this.Select(i);
+							changed = true;
+						}
+					}
 				}
-			}
 
-			{ // # markers area
-				SetCursorScreenPos(origin);
-				InvisibleButton("markers_area", vec2(width, markerHeight));
+				SpacingY(em(0.25f));
 
-				if (!isAnyMarkerHovered && IsItemHovered()) {
-					float x = io.MousePos.X - origin.X;
-					float gradientPos = x / width;
-					HSB color = gradient.ColorAt(gradientPos);
-					DrawMarker(origin, x, color, isSelected: false, showOutline: false);
+				var selectedPoint = gradient.Points[this.selectedIndex];
 
-					if (IsMouseClicked(0)) {
-						int i = gradient.Add(gradientPos, color);
-						state.Select(i);
+				{ // # controls
+					if (ArrowButton("##prev", ImGuiDir.Left)) {
+						this.Select(this.selectedIndex - 1);
+					}
+					SameLine();
+					if (ArrowButton("##next", ImGuiDir.Right)) {
+						this.Select(this.selectedIndex + 1);
+					}
+
+					const ImGuiColorEditFlags colorButtonFlags
+						= ImGuiColorEditFlags.NoAlpha
+						| ImGuiColorEditFlags.InputHSV;
+					SameLine(0, em(1.4f));
+					ColorButton("##edit_current", (Vector4)selectedPoint.color, colorButtonFlags, em(3, 0));
+
+					RGBA revertRgb = this.revertColor.ToRGBA();
+					uint revertButtonColor = revertRgb.ToU32();
+					PushStyleColor(ImGuiCol.Button, revertButtonColor);
+					PushStyleColor(ImGuiCol.ButtonHovered, revertButtonColor);
+					PushStyleColor(ImGuiCol.ButtonActive, revertButtonColor);
+					PushStyleColor(ImGuiCol.Text, revertRgb.ContrastColor().ToU32());
+					PushStyleColor(ImGuiCol.Border, GetColorU32(ImGuiCol.FrameBg));
+					PushStyleVar(ImGuiStyleVar.FrameBorderSize, 1);
+					SameLine();
+					if (Button("orig##edit_revert", em(3, 0))) {
+						selectedPoint.color = this.revertColor;
+					}
+					PopStyleColor(5);
+					PopStyleVar(1);
+
+					SameLine(0, em(1));
+					if (Button(FontAwesome6.Trash)) {
+						gradient.RemoveAt(this.selectedIndex);
+					}
+				}
+
+				SpacingY(em(0.25f));
+
+				{ // # edit color picker
+					if (ColorPickerHSB("##hsb_picker", ref selectedPoint.color)) {
 						changed = true;
 					}
 				}
 			}
+			EndGroup();
+			PopID();
 
-			SpacingY(em(0.25f));
-
-			var selectedPoint = gradient.Points[state.SelectedIndex];
-
-			{ // # controls
-				if (ArrowButton("##prev", ImGuiDir.Left)) {
-					state.Select(state.SelectedIndex - 1);
-				}
-				SameLine();
-				if (ArrowButton("##next", ImGuiDir.Right)) {
-					state.Select(state.SelectedIndex + 1);
-				}
-
-				const ImGuiColorEditFlags colorButtonFlags
-					= ImGuiColorEditFlags.NoAlpha
-					| ImGuiColorEditFlags.InputHSV;
-				SameLine(0, em(1.4f));
-				ColorButton("##edit_current", (Vector4)selectedPoint.color, colorButtonFlags, em(3, 0));
-
-				RGBA revertRgb = state.RevertColor.ToRGBA();
-				uint revertButtonColor = revertRgb.ToU32();
-				PushStyleColor(ImGuiCol.Button, revertButtonColor);
-				PushStyleColor(ImGuiCol.ButtonHovered, revertButtonColor);
-				PushStyleColor(ImGuiCol.ButtonActive, revertButtonColor);
-				PushStyleColor(ImGuiCol.Text, revertRgb.ContrastColor().ToU32());
-				PushStyleColor(ImGuiCol.Border, GetColorU32(ImGuiCol.FrameBg));
-				PushStyleVar(ImGuiStyleVar.FrameBorderSize, 1);
-				SameLine();
-				if (Button("orig##edit_revert", em(3, 0))) {
-					selectedPoint.color = state.RevertColor;
-				}
-				PopStyleColor(5);
-				PopStyleVar(1);
-
-				SameLine(0, em(1));
-				if (Button(FontAwesome6.Trash)) {
-					gradient.RemoveAt(state.SelectedIndex);
-				}
+			if (changed) {
+				preview.UpdateTexture();
 			}
 
-			SpacingY(em(0.25f));
+			return changed;
 
-			{ // # edit color picker
-				if (ColorPickerHSB("##hsb_picker", ref selectedPoint.color)) {
-					changed = true;
+			void DrawMarker(Vector2 origin, float x, HSB color, bool isSelected, bool showOutline = true) {
+				float marginOutline = emEven(0.1f);
+				float halfH = markerHeight / 2;
+				float halfW = markerWidth / 2;
+
+				var min = origin + vec2(x - halfW, 0);
+
+				if (showOutline) {
+					HSB outlineColor = isSelected ? hsb(320 / 360f) : hsb(0, 0, 0.2f);
+					uint imOutlineColor = outlineColor.ToU32();
+					drawList.AddTriangleFilled(
+						min + vec2(halfW, 0),
+						min + vec2(0, halfH),
+						min + vec2(markerWidth, halfH),
+						imOutlineColor
+					);
+					drawList.AddRectFilled(
+						min + vec2(0, halfH),
+						min + markerSize,
+						imOutlineColor
+					);
 				}
-			}
-		}
-		EndGroup();
-		PopID();
 
-		if (changed) {
-			state.UpdatePreview();
-		}
-
-		return changed;
-
-		void DrawMarker(Vector2 origin, float x, HSB color, bool isSelected, bool showOutline = true) {
-			float marginOutline = emEven(0.1f);
-			float halfH = markerHeight / 2;
-			float halfW = markerWidth / 2;
-
-			var min = origin + vec2(x - halfW, 0);
-
-			if (showOutline) {
-				HSB outlineColor = isSelected ? hsb(320 / 360f) : hsb(0, 0, 0.2f);
-				uint imOutlineColor = outlineColor.ToU32();
+				uint imColor = color.ToU32();
 				drawList.AddTriangleFilled(
-					min + vec2(halfW, 0),
-					min + vec2(0, halfH),
-					min + vec2(markerWidth, halfH),
-					imOutlineColor
+					min + vec2(halfW, marginOutline * 1.5f),
+					min + vec2(marginOutline, halfH),
+					min + vec2(markerWidth - marginOutline, halfH),
+					imColor
 				);
 				drawList.AddRectFilled(
-					min + vec2(0, halfH),
-					min + markerSize,
-					imOutlineColor
+					min + vec2(marginOutline, halfH),
+					min + markerSize - vec2(marginOutline),
+					imColor
 				);
 			}
-
-			uint imColor = color.ToU32();
-			drawList.AddTriangleFilled(
-				min + vec2(halfW, marginOutline * 1.5f),
-				min + vec2(marginOutline, halfH),
-				min + vec2(markerWidth - marginOutline, halfH),
-				imColor
-			);
-			drawList.AddRectFilled(
-				min + vec2(marginOutline, halfH),
-				min + markerSize - vec2(marginOutline),
-				imColor
-			);
 		}
 	}
 
@@ -652,7 +647,9 @@ static class Widgets {
 		RenderArrowPointingAt(
 			drawList, pos + vec2(0, barHeight - halfSize.Y), halfSizeOutline, ImGuiDir.Up, colorOutline
 		);
-		RenderArrowPointingAt(drawList, pos + vec2(0, barHeight - halfSize.Y + 1), halfSize, ImGuiDir.Up, colorArrow);
+		RenderArrowPointingAt(
+			drawList, pos + vec2(0, barHeight - halfSize.Y + 1), halfSize, ImGuiDir.Up, colorArrow
+		);
 	}
 
 #endregion
@@ -660,15 +657,10 @@ static class Widgets {
 #region sequence
 
 	public sealed class SequenceEdit {
-		readonly string id;
 		int selectedIndex = -1;
 
-		public SequenceEdit(string id) {
-			this.id = id;
-		}
-
 		public void Draw(Sequence sequence) {
-			PushID(this.id);
+			PushID("sequence_edit");
 			BeginGroup();
 			{
 				Vector2 avail = GetContentRegionAvail();

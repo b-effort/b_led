@@ -7,9 +7,9 @@ using static b_effort.b_led.interop.ImGuiEx;
 namespace b_effort.b_led;
 
 sealed class PreviewWindow {
-	public void Show() {
+	public void Show(string parentId) {
 		SetNextWindowSize(em(24, 24), ImGuiCond.FirstUseEver);
-		Begin("preview");
+		Begin($"preview##{parentId}");
 		{
 			// ImGuiUtil.ImageTextureFit(this.texture);
 		}
@@ -19,14 +19,14 @@ sealed class PreviewWindow {
 
 sealed class PalettesWindow {
 	Palette? selectedPalette;
-	readonly GradientEditState editState = new();
+	readonly PaletteEdit paletteEdit = new();
 
-	public void Show() {
+	public void Show(string parentId) {
 		SetNextWindowSize(em(24, 12), ImGuiCond.FirstUseEver);
-		Begin("palettes");
+		Begin($"palettes##{parentId}");
 		{
 			if (this.selectedPalette != null)
-				GradientEdit("selected_palette", this.selectedPalette.preview, this.editState);
+				this.paletteEdit.Draw("selected_palette", this.selectedPalette);
 
 			SeparatorText("all palettes");
 			PushStyleColor(ImGuiCol.FrameBg, Vector4.Zero);
@@ -50,7 +50,7 @@ sealed class PalettesWindow {
 					if (IsItemHovered())
 						SetTooltip(palette.name);
 
-					DragDrop.SourcePalette(palette);
+					DragDrop.Source_Palette(palette);
 				}
 
 				EndListBox();
@@ -64,9 +64,9 @@ sealed class PalettesWindow {
 sealed class PatternsWindow {
 	Pattern? selectedPattern;
 
-	public void Show() {
+	public void Show(string parentId) {
 		SetNextWindowSize(em(24, 12), ImGuiCond.FirstUseEver);
-		Begin("patterns");
+		Begin($"patterns##{parentId}");
 		{
 			Vector2 avail = GetContentRegionAvail();
 			float cellMargin = Style.FramePadding.X * 2;
@@ -112,13 +112,13 @@ sealed class PatternsWindow {
 
 sealed class SequencesWindow {
 	int selectedIndex = 0;
-	readonly SequenceEdit sequenceEdit = new("selected_sequence");
+	readonly SequenceEdit sequenceEdit = new();
 
-	public void Show() {
+	public void Show(string parentId) {
 		var sequences = Greg.Sequences;
 
 		SetNextWindowSize(em(24, 12), ImGuiCond.FirstUseEver);
-		Begin("sequences");
+		Begin($"sequences##{parentId}");
 		{
 			var drawList = GetWindowDrawList();
 
@@ -136,7 +136,7 @@ sealed class SequencesWindow {
 					if (Selectable(sequence.Label, isSelected))
 						this.selectedIndex = i;
 
-					DragDrop.SourceSequence(sequence);
+					DragDrop.Source_Sequence(sequence);
 				}
 
 				EndListBox();
@@ -148,9 +148,9 @@ sealed class SequencesWindow {
 }
 
 sealed class ClipsWindow {
-	public void Show() {
+	public void Show(string parentId) {
 		SetNextWindowSize(em(24, 12), ImGuiCond.FirstUseEver);
-		Begin("clips");
+		Begin($"clips##{parentId}");
 		{
 			var drawList = GetWindowDrawList();
 
@@ -229,11 +229,11 @@ sealed class FixturesWindow {
 
 	static FixtureTemplate[] Templates => Greg.FixtureTemplates;
 
-	public void Show() {
+	public void Show(string parentId) {
 		var fixtures = Greg.Fixtures;
 
 		SetNextWindowSize(em(24, 12), ImGuiCond.FirstUseEver);
-		Begin("fixtures");
+		Begin($"fixtures##{parentId}");
 		{
 			float childSpacing = em(1);
 			Vector2 childSize = vec2((ContentAvail().X - childSpacing) / 2f, ContentAvail().Y);
@@ -254,12 +254,15 @@ sealed class FixturesWindow {
 					Greg.UpdateFixtureSockets();
 				}
 
-				if (BeginTable("fixtures_table", 5, ImGuiTableFlags.Borders, ContentAvail())) {
-					TableSetupColumn("name", ImGuiTableColumnFlags.None, 1f);
-					TableSetupColumn("host", ImGuiTableColumnFlags.None, 1f);
-					TableSetupColumn("num leds", ImGuiTableColumnFlags.None, 1f);
-					TableSetupColumn("offset", ImGuiTableColumnFlags.None, 1f);
-					TableSetupColumn("status", ImGuiTableColumnFlags.None, 1f);
+				var tableFlags = TableFlags.Borders
+				               | TableFlags.Resizable
+				               | TableFlags.Sortable;
+				if (BeginTable("fixtures_table", 5, tableFlags, ContentAvail())) {
+					TableSetupColumn("name", TableColFlags.None, 1f);
+					TableSetupColumn("host", TableColFlags.None, 1f);
+					TableSetupColumn("leds", TableColFlags.None, 1f);
+					TableSetupColumn("offset", TableColFlags.None, 1f);
+					TableSetupColumn("status", TableColFlags.None, 1f);
 					TableHeadersRow();
 
 					for (var row = 0; row < fixtures.Count; row++) {
@@ -309,7 +312,7 @@ sealed class FixturesWindow {
 		SeparatorText(isNew ? "new fixture" : fixture!.name);
 
 		PushItemWidth(em(-12));
-		InputTextWithHint("name", "fixture", ref fixture!.name, Fixture.Name_MaxLength);
+		InputTextWithHint("name", "fixture", ref fixture!.name, maxLength: 64);
 
 		if (BeginCombo("template", fixture.Template.name)) {
 			foreach (var template in Templates) {
@@ -322,9 +325,9 @@ sealed class FixturesWindow {
 			EndCombo();
 		}
 
-		InputText("network id", ref fixture.hostname, Fixture.NetworkId_MaxLength);
-		InputIntClamp("num leds", ref fixture.numLeds, min: 0, max: 1 << 16);
-		InputIntClamp("starting led offset", ref fixture.startingLedOffset, min: 0, max: 1 << 16);
+		InputText("hostname", ref fixture.hostname, maxLength: 64);
+		InputIntClamp("leds", ref fixture.numLeds, min: 0, max: 1 << 16);
+		InputIntClamp("offset", ref fixture.startingLedOffset, min: 0, max: 1 << 16);
 		InputFloat2("anchor point", ref fixture.anchorPoint);
 		InputFloat2("world pos", ref fixture.worldPos);
 		PopItemWidth();
@@ -351,9 +354,9 @@ sealed class AudioWindow {
 	static readonly uint color_connected = hsb(120f / 360).ToU32();
 	static readonly uint color_disconnected = hsb(0).ToU32();
 
-	public void Show() {
+	public void Show(string parentId) {
 		SetNextWindowSize(em(24, 12), ImGuiCond.FirstUseEver);
-		Begin("audio");
+		Begin($"audio##{parentId}");
 		{
 			var drawList = GetWindowDrawList();
 
@@ -389,9 +392,9 @@ sealed class MetronomeWindow {
 	readonly float[] beatPoints = new float[144];
 	int beatOffset = 0;
 
-	public void Show() {
+	public void Show(string parentId) {
 		SetNextWindowSize(em(24, 12), ImGuiCond.FirstUseEver);
-		Begin("metronome");
+		Begin($"metronome##{parentId}");
 		{
 			if (Button("tap")) {
 				Metronome.Tap();
@@ -429,9 +432,9 @@ sealed class MetronomeWindow {
 sealed class MacrosWindow {
 	static Pattern? Pattern => Greg.ActivePattern;
 
-	public void Show() {
+	public void Show(string parentId) {
 		SetNextWindowSize(em(24, 12), ImGuiCond.FirstUseEver);
-		Begin("macros");
+		Begin($"macros##{parentId}");
 		{
 			if (BeginTable("macros_table", 2, ImGuiTableFlags.BordersInnerH)) {
 				TableSetupColumn("global");
@@ -470,9 +473,9 @@ sealed class PushWindow {
 	static readonly uint color_connected = hsb(120f / 360).ToU32();
 	static readonly uint color_disconnected = hsb(0).ToU32();
 
-	public void Show() {
+	public void Show(string parentId) {
 		SetNextWindowSize(em(24, 12), ImGuiCond.FirstUseEver);
-		Begin("push");
+		Begin($"push##{parentId}");
 		{
 			var drawList = GetWindowDrawList();
 			float radius = em(0.45f);
@@ -496,11 +499,11 @@ sealed class PushWindow {
 
 			SameLine();
 			// AlignTextToFramePadding();
-			var encTempo = Push2.Encoders[Push2.Encoder.Tempo].Value;
-			if (Knob("enc/tempo", ref encTempo)) { }
+			var enc_tempo = Push2.Encoders[Push2.Encoder.Tempo].Value;
+			if (Knob("enc/tempo", ref enc_tempo)) { }
 			SameLine();
-			var encSwing = Push2.Encoders[Push2.Encoder.Swing].Value;
-			if (Knob("enc/swing", ref encSwing)) { }
+			var enc_swing = Push2.Encoders[Push2.Encoder.Swing].Value;
+			if (Knob("enc/swing", ref enc_swing)) { }
 		}
 		End();
 	}

@@ -96,7 +96,10 @@ static class Greg {
 
 		// assign fixtures
 		foreach (var socket in FixtureSockets) {
-			var fixtures = Fixtures.Where(f => f.hostname == socket.hostname).ToArray();
+			var fixtures = Fixtures
+				.Where(f => f.hostname == socket.hostname)
+				.OrderBy(f => f.startingLedOffset)
+				.ToArray();
 			socket.AssignFixtures(fixtures);
 		}
 	}

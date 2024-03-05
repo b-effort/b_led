@@ -62,9 +62,6 @@ abstract class FixtureTemplate {
 
 [DataContract]
 sealed class Fixture {
-	public const int Name_MaxLength = 64;
-	public const int NetworkId_MaxLength = 64;
-
 	[DataMember] public Guid Id { get; }
 	[DataMember] public string name;
 	[DataMember] Guid templateId;
@@ -303,7 +300,7 @@ sealed class FixtureSocket {
 
 	public FixtureSocket(string hostname) {
 		this.hostname = hostname;
-		this.uri = new Uri($"ws://{hostname}.local:{Config.WS_Port}/{Config.WS_Path}/");
+		this.uri = new Uri($"ws://{hostname}:{Config.WS_Port}/{Config.WS_Path}/");
 	}
 
 	public void AssignFixtures(Fixture[] newFixtures) {
